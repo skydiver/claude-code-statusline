@@ -6,12 +6,52 @@
 
 TEMPLATE="extended"  # Options: basic, extended
 
+# =============================================================================
+# Template syntax
+# =============================================================================
+#
+#   - Each string in the array is concatenated (include separators in the string)
+#   - Use "---" to start a new line
+#   - Placeholders: {model}, {cost}, {duration}, {session}, {session_reset},
+#                   {weekly}, {weekly_reset}, {context}, {tokens}, {cache}, {version}
+#   - Add any literal text, emojis, or formatting around placeholders
+#
+# Examples:
+#   "🤖 {model}"                            -> 🤖 Opus 4.5
+#   "💰 {cost}"                             -> 💰 $1.79
+#   "📈 Session: {session}"                 -> 📈 Session: 17.0%
+#   "{session} (Resets in {session_reset})" -> 17.0% (Resets in 0h 31m)
+#
+# Multi-line example:
+#   TEMPLATE_CUSTOM=(
+#       "🤖 {model} | "
+#       "💰 {cost}"
+#       ---
+#       "🚀 {version}"
+#   )
+
 # Template: basic (single line)
-TEMPLATE_BASIC_LINE1="model | cost | session | weekly | context"
+TEMPLATE_BASIC=(
+    "🤖 {model} | "
+    "💰 {cost} | "
+    "📈 Session: {session} (Resets in {session_reset}) | "
+    "📅 Weekly: {weekly} (Resets {weekly_reset}) | "
+    "🧠 Context: {context}"
+)
 
 # Template: extended (two lines)
-TEMPLATE_EXTENDED_LINE1="model | cost duration | session | weekly | context"
-TEMPLATE_EXTENDED_LINE2="version | tokens | cache"
+TEMPLATE_EXTENDED=(
+    "🤖 {model} | "
+    "💰 {cost} | "
+    "⏱️ {duration} | "
+    "📈 Session: {session} (Resets in {session_reset}) | "
+    "📅 Weekly: {weekly} (Resets {weekly_reset}) | "
+    "🧠 Context: {context}"
+    ---
+    "🚀 {version}"
+    "🔤 {tokens}"
+    "💾 {cache}"
+)
 
 # =============================================================================
 # Data fetching
@@ -52,8 +92,8 @@ cache_read=$(echo "$input" | jq -r '.context_window.current_usage.cache_read_inp
 cc_version=$(echo "$input" | jq -r '.version // "N/A"')
 
 # From Anthropic API
-current_session=$(echo "$usage_response" | jq -r 'if .five_hour.utilization != null then ((.five_hour.utilization | tostring) + "%") else "N/A" end')
-weekly=$(echo "$usage_response" | jq -r 'if .seven_day.utilization != null then ((.seven_day.utilization | tostring) + "%") else "N/A" end')
+session_pct=$(echo "$usage_response" | jq -r 'if .five_hour.utilization != null then ((.five_hour.utilization | tostring) + "%") else "N/A" end')
+weekly_pct=$(echo "$usage_response" | jq -r 'if .seven_day.utilization != null then ((.seven_day.utilization | tostring) + "%") else "N/A" end')
 
 # Calculate session reset time
 resets_at=$(echo "$usage_response" | jq -r '.five_hour.resets_at // empty')
@@ -63,18 +103,18 @@ if [[ -n "$resets_at" ]]; then
     diff_seconds=$((resets_epoch - now_epoch))
     hours=$((diff_seconds / 3600))
     minutes=$(((diff_seconds % 3600) / 60))
-    resets_in="Resets in ${hours} hr ${minutes} min"
+    session_reset="${hours}h ${minutes}m"
 else
-    resets_in="N/A"
+    session_reset="N/A"
 fi
 
 # Calculate weekly reset time
 weekly_resets_at=$(echo "$usage_response" | jq -r '.seven_day.resets_at // empty')
 if [[ -n "$weekly_resets_at" ]]; then
     weekly_resets_epoch=$(TZ=UTC date -j -f "%Y-%m-%dT%H:%M:%S" "${weekly_resets_at%%.*}" +%s 2>/dev/null)
-    weekly_resets_formatted=$(date -j -f "%s" "$weekly_resets_epoch" "+Resets %a %-l:%M %p")
+    weekly_reset=$(date -j -f "%s" "$weekly_resets_epoch" "+%a %-l:%M%p")
 else
-    weekly_resets_formatted="N/A"
+    weekly_reset="N/A"
 fi
 
 # Calculate duration
@@ -82,72 +122,67 @@ duration_min=$((duration_ms / 60000))
 duration_sec=$(((duration_ms % 60000) / 1000))
 
 # =============================================================================
-# Widget definitions
+# Placeholder definitions
 # =============================================================================
 
-get_widget() {
-    case "$1" in
-        model)    echo "🤖 $model_name" ;;
-        cost)     echo "💰 \$$session_cost" ;;
-        session)  echo "📈 Session: $current_session ($resets_in)" ;;
-        weekly)   echo "📅 Weekly: $weekly ($weekly_resets_formatted)" ;;
-        context)  echo "🧠 Context: $context_usage" ;;
-        duration) echo "⏱️ ${duration_min}m ${duration_sec}s" ;;
-        tokens)   echo "🔤 In: $total_input Out: $total_output" ;;
-        cache)    echo "💾 Cache: $cache_read" ;;
-        version)  echo "🚀 Claude Code v$cc_version" ;;
-        *)        echo "" ;;
-    esac
-}
+# Each placeholder is: {name} -> value
+# Placeholders are replaced in the template string
+
+P_MODEL="$model_name"
+P_COST="\$$session_cost"
+P_SESSION="$session_pct"
+P_SESSION_RESET="$session_reset"
+P_WEEKLY="$weekly_pct"
+P_WEEKLY_RESET="$weekly_reset"
+P_CONTEXT="$context_usage"
+P_DURATION="${duration_min}m ${duration_sec}s"
+P_TOKENS="In: $total_input Out: $total_output"
+P_CACHE="Cache: $cache_read"
+P_VERSION="Claude Code v$cc_version"
 
 # =============================================================================
 # Render template
 # =============================================================================
 
 render_line() {
-    local template="$1"
-    local output=""
-    local group_output=""
-    local widget_value
+    local line="$1"
 
-    # Split by | to get groups
-    IFS='|' read -ra groups <<< "$template"
+    # Replace all placeholders
+    line="${line//\{model\}/$P_MODEL}"
+    line="${line//\{cost\}/$P_COST}"
+    line="${line//\{session\}/$P_SESSION}"
+    line="${line//\{session_reset\}/$P_SESSION_RESET}"
+    line="${line//\{weekly\}/$P_WEEKLY}"
+    line="${line//\{weekly_reset\}/$P_WEEKLY_RESET}"
+    line="${line//\{context\}/$P_CONTEXT}"
+    line="${line//\{duration\}/$P_DURATION}"
+    line="${line//\{tokens\}/$P_TOKENS}"
+    line="${line//\{cache\}/$P_CACHE}"
+    line="${line//\{version\}/$P_VERSION}"
 
-    for group in "${groups[@]}"; do
-        group_output=""
-        # Trim whitespace and process widgets in group
-        for widget in $group; do
-            widget_value=$(get_widget "$widget")
-            if [[ -n "$widget_value" ]]; then
-                if [[ -n "$group_output" ]]; then
-                    group_output="$group_output $widget_value"
-                else
-                    group_output="$widget_value"
-                fi
-            fi
-        done
-        # Add group to output with | separator
-        if [[ -n "$group_output" ]]; then
-            if [[ -n "$output" ]]; then
-                output="$output | $group_output"
-            else
-                output="$group_output"
-            fi
-        fi
-    done
-    echo "$output"
+    echo "$line"
 }
 
-# Get template config based on selected template
+# Get template based on selected template
 template_upper=$(echo "$TEMPLATE" | tr '[:lower:]' '[:upper:]')
-line1_var="TEMPLATE_${template_upper}_LINE1"
-line2_var="TEMPLATE_${template_upper}_LINE2"
+template_var="TEMPLATE_${template_upper}[@]"
+template_arr=("${!template_var}")
 
-# Output lines
-if [[ -n "${!line1_var}" ]]; then
-    render_line "${!line1_var}"
-fi
+# Process template: split by --- and output each line
+current_line=""
+for item in "${template_arr[@]}"; do
+    if [[ "$item" == "---" ]]; then
+        # Output current line and start new one
+        if [[ -n "$current_line" ]]; then
+            render_line "$current_line"
+        fi
+        current_line=""
+    else
+        current_line+="$item"
+    fi
+done
 
-if [[ -n "${!line2_var}" ]]; then
-    render_line "${!line2_var}"
+# Output last line
+if [[ -n "$current_line" ]]; then
+    render_line "$current_line"
 fi
