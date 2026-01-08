@@ -1,7 +1,21 @@
 #!/bin/bash
 
+# =============================================================================
 # Configuration
-EXTENDED_INFO=false  # Set to true to show extended info (second line)
+# =============================================================================
+
+TEMPLATE="extended"  # Options: basic, extended
+
+# Template: basic (single line)
+TEMPLATE_BASIC_LINE1="model | cost | session | weekly | context"
+
+# Template: extended (two lines)
+TEMPLATE_EXTENDED_LINE1="model | cost duration | session | weekly | context"
+TEMPLATE_EXTENDED_LINE2="version | tokens | cache"
+
+# =============================================================================
+# Data fetching
+# =============================================================================
 
 # Read JSON input from stdin
 input=$(cat)
@@ -35,7 +49,7 @@ duration_ms=$(echo "$input" | jq -r '.cost.total_duration_ms // 0')
 total_input=$(echo "$input" | jq -r '.context_window.total_input_tokens // 0')
 total_output=$(echo "$input" | jq -r '.context_window.total_output_tokens // 0')
 cache_read=$(echo "$input" | jq -r '.context_window.current_usage.cache_read_input_tokens // 0')
-version=$(echo "$input" | jq -r '.version // "N/A"')
+cc_version=$(echo "$input" | jq -r '.version // "N/A"')
 
 # From Anthropic API
 current_session=$(echo "$usage_response" | jq -r 'if .five_hour.utilization != null then ((.five_hour.utilization | tostring) + "%") else "N/A" end')
@@ -68,27 +82,72 @@ duration_min=$((duration_ms / 60000))
 duration_sec=$(((duration_ms % 60000) / 1000))
 
 # =============================================================================
-# Define widgets
+# Widget definitions
 # =============================================================================
 
-W_MODEL="🤖 $model_name"
-W_COST="💰 \$$session_cost"
-W_SESSION="📈 Session: $current_session ($resets_in)"
-W_WEEKLY="📅 Weekly: $weekly ($weekly_resets_formatted)"
-W_CONTEXT="🧠 Context: $context_usage"
-W_DURATION="⏱️ ${duration_min}m ${duration_sec}s"
-W_TOKENS="🔤 In: $total_input Out: $total_output"
-W_CACHE="💾 Cache: $cache_read"
-W_VERSION="🚀 Claude Code v$version"
+get_widget() {
+    case "$1" in
+        model)    echo "🤖 $model_name" ;;
+        cost)     echo "💰 \$$session_cost" ;;
+        session)  echo "📈 Session: $current_session ($resets_in)" ;;
+        weekly)   echo "📅 Weekly: $weekly ($weekly_resets_formatted)" ;;
+        context)  echo "🧠 Context: $context_usage" ;;
+        duration) echo "⏱️ ${duration_min}m ${duration_sec}s" ;;
+        tokens)   echo "🔤 In: $total_input Out: $total_output" ;;
+        cache)    echo "💾 Cache: $cache_read" ;;
+        version)  echo "🚀 Claude Code v$cc_version" ;;
+        *)        echo "" ;;
+    esac
+}
 
 # =============================================================================
-# Compose and output lines
+# Render template
 # =============================================================================
 
-LINE1="$W_MODEL | $W_COST | $W_SESSION | $W_WEEKLY | $W_CONTEXT"
-echo "$LINE1"
+render_line() {
+    local template="$1"
+    local output=""
+    local group_output=""
+    local widget_value
 
-if [[ "$EXTENDED_INFO" == "true" ]]; then
-    LINE2="$W_DURATION | $W_TOKENS | $W_CACHE | $W_VERSION"
-    echo "$LINE2"
+    # Split by | to get groups
+    IFS='|' read -ra groups <<< "$template"
+
+    for group in "${groups[@]}"; do
+        group_output=""
+        # Trim whitespace and process widgets in group
+        for widget in $group; do
+            widget_value=$(get_widget "$widget")
+            if [[ -n "$widget_value" ]]; then
+                if [[ -n "$group_output" ]]; then
+                    group_output="$group_output $widget_value"
+                else
+                    group_output="$widget_value"
+                fi
+            fi
+        done
+        # Add group to output with | separator
+        if [[ -n "$group_output" ]]; then
+            if [[ -n "$output" ]]; then
+                output="$output | $group_output"
+            else
+                output="$group_output"
+            fi
+        fi
+    done
+    echo "$output"
+}
+
+# Get template config based on selected template
+template_upper=$(echo "$TEMPLATE" | tr '[:lower:]' '[:upper:]')
+line1_var="TEMPLATE_${template_upper}_LINE1"
+line2_var="TEMPLATE_${template_upper}_LINE2"
+
+# Output lines
+if [[ -n "${!line1_var}" ]]; then
+    render_line "${!line1_var}"
+fi
+
+if [[ -n "${!line2_var}" ]]; then
+    render_line "${!line2_var}"
 fi
