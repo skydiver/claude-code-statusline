@@ -4,7 +4,7 @@
 # Configuration
 # =============================================================================
 
-TEMPLATE="basic"  # Options: basic, extended
+TEMPLATE="${STATUSLINE_TEMPLATE:-basic}"  # Options: basic, extended (set via env var or change default)
 
 # =============================================================================
 # Template syntax
