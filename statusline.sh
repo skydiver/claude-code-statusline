@@ -4,7 +4,7 @@
 # Configuration
 # =============================================================================
 
-TEMPLATE="extended"  # Options: basic, extended
+TEMPLATE="basic"  # Options: basic, extended
 
 # =============================================================================
 # Template syntax
@@ -13,7 +13,8 @@ TEMPLATE="extended"  # Options: basic, extended
 #   - Each string in the array is concatenated (include separators in the string)
 #   - Use "---" to start a new line
 #   - Placeholders: {model}, {cost}, {duration}, {session}, {session_reset},
-#                   {weekly}, {weekly_reset}, {context}, {tokens}, {cache}, {version}
+#                   {weekly}, {weekly_reset}, {context}, {tokens_in}, {tokens_out},
+#                   {cache}, {version}
 #   - Add any literal text, emojis, or formatting around placeholders
 #
 # Examples:
@@ -48,9 +49,10 @@ TEMPLATE_EXTENDED=(
     "📅 Weekly: {weekly} (Resets {weekly_reset}) | "
     "🧠 Context: {context}"
     ---
-    "🚀 {version}"
-    "🔤 {tokens}"
-    "💾 {cache}"
+    "🚀 Claude Code {version} | "
+    "⬇️ Tokens In: {tokens_in} | "
+    "⬆️ Tokens Out: {tokens_out} | "
+    "♻️ Cache: {cache}"
 )
 
 # =============================================================================
@@ -89,6 +91,8 @@ duration_ms=$(echo "$input" | jq -r '.cost.total_duration_ms // 0')
 total_input=$(echo "$input" | jq -r '.context_window.total_input_tokens // 0')
 total_output=$(echo "$input" | jq -r '.context_window.total_output_tokens // 0')
 cache_read=$(echo "$input" | jq -r '.context_window.current_usage.cache_read_input_tokens // 0')
+cache_creation=$(echo "$input" | jq -r '.context_window.current_usage.cache_creation_input_tokens // 0')
+new_input=$(echo "$input" | jq -r '.context_window.current_usage.input_tokens // 0')
 cc_version=$(echo "$input" | jq -r '.version // "N/A"')
 
 # From Anthropic API
@@ -136,9 +140,17 @@ P_WEEKLY="$weekly_pct"
 P_WEEKLY_RESET="$weekly_reset"
 P_CONTEXT="$context_usage"
 P_DURATION="${duration_min}m ${duration_sec}s"
-P_TOKENS="In: $total_input Out: $total_output"
-P_CACHE="Cache: $cache_read"
-P_VERSION="Claude Code v$cc_version"
+P_TOKENS_IN=$(printf "%'d" "$total_input")
+P_TOKENS_OUT=$(printf "%'d" "$total_output")
+# Calculate cache hit percentage
+cache_total=$((cache_read + cache_creation + new_input))
+if [[ $cache_total -gt 0 ]]; then
+    cache_pct=$((cache_read * 100 / cache_total))
+else
+    cache_pct=0
+fi
+P_CACHE="${cache_pct}% ($(printf "%'d" "$cache_read"))"
+P_VERSION="v$cc_version"
 
 # =============================================================================
 # Render template
@@ -156,7 +168,8 @@ render_line() {
     line="${line//\{weekly_reset\}/$P_WEEKLY_RESET}"
     line="${line//\{context\}/$P_CONTEXT}"
     line="${line//\{duration\}/$P_DURATION}"
-    line="${line//\{tokens\}/$P_TOKENS}"
+    line="${line//\{tokens_in\}/$P_TOKENS_IN}"
+    line="${line//\{tokens_out\}/$P_TOKENS_OUT}"
     line="${line//\{cache\}/$P_CACHE}"
     line="${line//\{version\}/$P_VERSION}"
 
