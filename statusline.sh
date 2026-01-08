@@ -23,15 +23,19 @@ get_usage() {
 usage_response=$(get_usage)
 
 # Extract current session utilization (five_hour.utilization)
-current_session=$(echo "$usage_response" | jq -r '(.five_hour.utilization | tostring) + "%"')
+current_session=$(echo "$usage_response" | jq -r 'if .five_hour.utilization != null then ((.five_hour.utilization | tostring) + "%") else "N/A" end')
 
 # Extract weekly utilization (seven_day.utilization)
-weekly=$(echo "$usage_response" | jq -r '(.seven_day.utilization | tostring) + "%"')
+weekly=$(echo "$usage_response" | jq -r 'if .seven_day.utilization != null then ((.seven_day.utilization | tostring) + "%") else "N/A" end')
 
 # Calculate weekly reset time
-weekly_resets_at=$(echo "$usage_response" | jq -r '.seven_day.resets_at')
-weekly_resets_epoch=$(TZ=UTC date -j -f "%Y-%m-%dT%H:%M:%S" "${weekly_resets_at%%.*}" +%s 2>/dev/null)
-weekly_resets_formatted=$(date -j -f "%s" "$weekly_resets_epoch" "+Resets %a %-l:%M %p")
+weekly_resets_at=$(echo "$usage_response" | jq -r '.seven_day.resets_at // empty')
+if [[ -n "$weekly_resets_at" ]]; then
+    weekly_resets_epoch=$(TZ=UTC date -j -f "%Y-%m-%dT%H:%M:%S" "${weekly_resets_at%%.*}" +%s 2>/dev/null)
+    weekly_resets_formatted=$(date -j -f "%s" "$weekly_resets_epoch" "+Resets %a %-l:%M %p")
+else
+    weekly_resets_formatted="N/A"
+fi
 
 # Calculate context window usage percentage
 context_usage=$(echo "$input" | jq -r '
@@ -40,13 +44,17 @@ context_usage=$(echo "$input" | jq -r '
 ')
 
 # Calculate time until reset (API returns UTC)
-resets_at=$(echo "$usage_response" | jq -r '.five_hour.resets_at')
-resets_epoch=$(TZ=UTC date -j -f "%Y-%m-%dT%H:%M:%S" "${resets_at%%.*}" +%s 2>/dev/null)
-now_epoch=$(date +%s)
-diff_seconds=$((resets_epoch - now_epoch))
-hours=$((diff_seconds / 3600))
-minutes=$(((diff_seconds % 3600) / 60))
-resets_in="Resets in ${hours} hr ${minutes} min"
+resets_at=$(echo "$usage_response" | jq -r '.five_hour.resets_at // empty')
+if [[ -n "$resets_at" ]]; then
+    resets_epoch=$(TZ=UTC date -j -f "%Y-%m-%dT%H:%M:%S" "${resets_at%%.*}" +%s 2>/dev/null)
+    now_epoch=$(date +%s)
+    diff_seconds=$((resets_epoch - now_epoch))
+    hours=$((diff_seconds / 3600))
+    minutes=$(((diff_seconds % 3600) / 60))
+    resets_in="Resets in ${hours} hr ${minutes} min"
+else
+    resets_in="N/A"
+fi
 
 # Row 1: Robot + Model + Cost + Session Usage
 model_name=$(echo "$input" | jq -r '.model.display_name')
