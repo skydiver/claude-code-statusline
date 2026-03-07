@@ -62,22 +62,34 @@ TEMPLATE_EXTENDED=(
 # Read JSON input from stdin
 input=$(cat)
 
-# Get Claude Code credentials from keychain
-credentials=$(security find-generic-password -a "$USER" -s "Claude Code-credentials" -w 2>/dev/null)
-access_token=$(echo "$credentials" | jq -r '.claudeAiOauth.accessToken')
+# Usage API cache
+CACHE_FILE="/tmp/claude-usage-cache.json"
+CACHE_MAX_AGE=180  # 3 minutes
 
-# Function to get usage from Anthropic API
-get_usage() {
-    curl --silent --request GET \
+# Use cache if fresh
+if [[ -f "$CACHE_FILE" ]]; then
+    cache_age=$(( $(date +%s) - $(stat -f %m "$CACHE_FILE") ))
+    if [[ $cache_age -lt $CACHE_MAX_AGE ]]; then
+        usage_response=$(cat "$CACHE_FILE")
+    fi
+fi
+
+# Fetch if no cached response
+if [[ -z "$usage_response" ]]; then
+    credentials=$(security find-generic-password -a "$USER" -s "Claude Code-credentials" -w 2>/dev/null)
+    access_token=$(echo "$credentials" | jq -r '.claudeAiOauth.accessToken')
+
+    usage_response=$(curl --silent --fail-with-body --request GET \
         --url https://api.anthropic.com/api/oauth/usage \
         --header 'anthropic-beta: oauth-2025-04-20' \
         --header "authorization: Bearer $access_token" \
         --header 'content-type: application/json' \
-        --header 'user-agent: claude-code/2.0.71'
-}
+        --header 'user-agent: claude-code/2.1.69')
 
-# Get usage data
-usage_response=$(get_usage)
+    if [[ $? -eq 0 && -n "$usage_response" ]]; then
+        echo "$usage_response" > "$CACHE_FILE"
+    fi
+fi
 
 # =============================================================================
 # Extract raw data
