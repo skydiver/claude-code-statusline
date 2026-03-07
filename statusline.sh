@@ -13,12 +13,12 @@ TEMPLATE="${STATUSLINE_TEMPLATE:-basic}"  # Options: basic, extended (set via en
 #   - Each string in the array is concatenated (include separators in the string)
 #   - Use "---" to start a new line
 #   - Placeholders: {model}, {cost}, {duration}, {session}, {session_reset},
-#                   {weekly}, {weekly_reset}, {context}, {tokens_in}, {tokens_out},
-#                   {cache}, {version}
+#                   {weekly}, {weekly_reset}, {context}, {context_bar},
+#                   {tokens_in}, {tokens_out}, {cache}, {version}
 #   - Add any literal text, emojis, or formatting around placeholders
 #
 # Examples:
-#   "🤖 {model}"                            -> 🤖 Opus 4.5
+#   "🤖 {model}"                            -> 🤖 Opus 4.6
 #   "💰 {cost}"                             -> 💰 $1.79
 #   "📈 Session: {session}"                 -> 📈 Session: 17.0%
 #   "{session} (Resets in {session_reset})" -> 17.0% (Resets in 0h 31m)
@@ -35,9 +35,9 @@ TEMPLATE="${STATUSLINE_TEMPLATE:-basic}"  # Options: basic, extended (set via en
 TEMPLATE_BASIC=(
     "🤖 {model} | "
     "💰 {cost} | "
-    "📈 Session: {session} (Resets in {session_reset}) | "
-    "📅 Weekly: {weekly} (Resets {weekly_reset}) | "
-    "🧠 Context: {context}"
+    "📈 Session: {session} [{session_reset}] | "
+    "📅 Weekly: {weekly} [{weekly_reset}] | "
+    "🧠 {context_bar}"
 )
 
 # Template: extended (two lines)
@@ -45,8 +45,8 @@ TEMPLATE_EXTENDED=(
     "🤖 {model} | "
     "💰 {cost} | "
     "⏱️ {duration} | "
-    "📈 Session: {session} (Resets in {session_reset}) | "
-    "📅 Weekly: {weekly} (Resets {weekly_reset}) | "
+    "📈 Session: {session} [{session_reset}] | "
+    "📅 Weekly: {weekly} [{weekly_reset}] | "
     "🧠 Context: {context}"
     ---
     "🚀 Claude Code {version} | "
@@ -64,7 +64,7 @@ input=$(cat)
 
 # Usage API cache
 CACHE_FILE="/tmp/claude-usage-cache.json"
-CACHE_MAX_AGE=180  # 3 minutes
+CACHE_MAX_AGE=60  # 1 minute
 
 # Use cache if fresh
 if [[ -f "$CACHE_FILE" ]]; then
@@ -84,7 +84,7 @@ if [[ -z "$usage_response" ]]; then
         --header 'anthropic-beta: oauth-2025-04-20' \
         --header "authorization: Bearer $access_token" \
         --header 'content-type: application/json' \
-        --header 'user-agent: claude-code/2.1.69')
+        --header 'user-agent: claude-code/2.1.71')
 
     if [[ $? -eq 0 && -n "$usage_response" ]]; then
         echo "$usage_response" > "$CACHE_FILE"
@@ -98,7 +98,8 @@ fi
 # From Claude Code input
 model_name=$(echo "$input" | jq -r '.model.display_name')
 session_cost=$(echo "$input" | jq -r '(.cost.total_cost_usd // 0) | . * 100 | round / 100 | tostring | if contains(".") then (. + "00")[0:index(".")+3] else . + ".00" end')
-context_usage=$(echo "$input" | jq -r '((.context_window.total_input_tokens // 0) / (.context_window.context_window_size // 1) * 100) | . * 10 | round / 10 | tostring + "%"')
+context_pct=$(echo "$input" | jq -r '.context_window.used_percentage // 0')
+context_size=$(echo "$input" | jq -r '.context_window.context_window_size // 0')
 duration_ms=$(echo "$input" | jq -r '.cost.total_duration_ms // 0')
 total_input=$(echo "$input" | jq -r '.context_window.total_input_tokens // 0')
 total_output=$(echo "$input" | jq -r '.context_window.total_output_tokens // 0')
@@ -150,7 +151,18 @@ P_SESSION="$session_pct"
 P_SESSION_RESET="$session_reset"
 P_WEEKLY="$weekly_pct"
 P_WEEKLY_RESET="$weekly_reset"
-P_CONTEXT="$context_usage"
+P_CONTEXT="${context_pct}%"
+
+# Build context progress bar
+bar_width=10
+filled=$((context_pct * bar_width / 100))
+bar=""
+for ((i=0; i<bar_width; i++)); do
+    if ((i < filled)); then bar+="█"; else bar+="░"; fi
+done
+tokens_used_k=$((context_pct * context_size / 100 / 1000))
+tokens_total_k=$((context_size / 1000))
+P_CONTEXT_BAR="${bar} ${context_pct}% (${tokens_used_k}k/${tokens_total_k}k)"
 P_DURATION="${duration_min}m ${duration_sec}s"
 P_TOKENS_IN=$(printf "%'d" "$total_input")
 P_TOKENS_OUT=$(printf "%'d" "$total_output")
@@ -183,6 +195,7 @@ render_line() {
     line="${line//\{tokens_in\}/$P_TOKENS_IN}"
     line="${line//\{tokens_out\}/$P_TOKENS_OUT}"
     line="${line//\{cache\}/$P_CACHE}"
+    line="${line//\{context_bar\}/$P_CONTEXT_BAR}"
     line="${line//\{version\}/$P_VERSION}"
 
     echo "$line"

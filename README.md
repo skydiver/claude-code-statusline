@@ -10,14 +10,14 @@ Custom statusline script for Claude Code that displays real-time usage metrics w
 **Basic template** (single line):
 
 ```
-🤖 Opus 4.5 | 💰 $1.79 | 📈 Session: 17.0% (Resets in 0h 31m) | 📅 Weekly: 4.0% (Resets Thu 10:59AM) | 🧠 Context: 7.5%
+🤖 Opus 4.6 | 💰 $1.79 | 📈 Session: 17.0% [0h 31m] | 📅 Weekly: 4.0% [Thu 10:59AM] | 🧠 ██░░░░░░░░ 18% (36k/200k)
 ```
 
 **Extended template** (two lines):
 
 ```
-🤖 Opus 4.5 | 💰 $1.79 | ⏱️ 21m 39s | 📈 Session: 17.0% (Resets in 0h 31m) | 📅 Weekly: 4.0% (Resets Thu 10:59AM) | 🧠 Context: 7.5%
-🚀 Claude Code v2.1.1 | ⬇️ Tokens In: 43,439 | ⬆️ Tokens Out: 43,829 | ♻️ Cache: 99% (56,410)
+🤖 Opus 4.6 | 💰 $1.79 | ⏱️ 21m 39s | 📈 Session: 17.0% [0h 31m] | 📅 Weekly: 4.0% [Thu 10:59AM] | 🧠 Context: 18%
+🚀 Claude Code v2.1.71 | ⬇️ Tokens In: 43,439 | ⬆️ Tokens Out: 43,829 | ♻️ Cache: 99% (56,410)
 ```
 
 ## Requirements
@@ -89,20 +89,21 @@ TEMPLATE_CUSTOM=(
 
 ## Available Placeholders
 
-| Placeholder       | Description              | Example        |
-| ----------------- | ------------------------ | -------------- |
-| `{model}`         | Current model name       | `Opus 4.5`     |
-| `{cost}`          | Session cost in USD      | `$1.79`        |
-| `{duration}`      | Session duration         | `21m 39s`      |
-| `{session}`       | 5-hour utilization       | `17.0%`        |
-| `{session_reset}` | Time until session reset | `0h 31m`       |
-| `{weekly}`        | 7-day utilization        | `4.0%`         |
-| `{weekly_reset}`  | Weekly reset day/time    | `Thu 10:59AM`  |
-| `{context}`       | Context window usage     | `7.5%`         |
-| `{tokens_in}`     | Total input tokens       | `43,439`       |
-| `{tokens_out}`    | Total output tokens      | `43,829`       |
-| `{cache}`         | Cache hit rate and count | `99% (56,410)` |
-| `{version}`       | Claude Code version      | `v2.1.1`       |
+| Placeholder       | Description                         | Example                     |
+| ----------------- | ----------------------------------- | --------------------------- |
+| `{model}`         | Current model name                  | `Opus 4.6`                  |
+| `{cost}`          | Session cost in USD                 | `$1.79`                     |
+| `{duration}`      | Session duration                    | `21m 39s`                   |
+| `{session}`       | 5-hour utilization                  | `17.0%`                     |
+| `{session_reset}` | Time until session reset            | `0h 31m`                    |
+| `{weekly}`        | 7-day utilization                   | `4.0%`                      |
+| `{weekly_reset}`  | Weekly reset day/time               | `Thu 10:59AM`               |
+| `{context}`       | Context window usage percentage     | `18%`                       |
+| `{context_bar}`   | Visual progress bar with token info | `██░░░░░░░░ 18% (36k/200k)` |
+| `{tokens_in}`     | Total input tokens                  | `43,439`                    |
+| `{tokens_out}`    | Total output tokens                 | `43,829`                    |
+| `{cache}`         | Cache hit rate and count            | `99% (56,410)`              |
+| `{version}`       | Claude Code version                 | `v2.1.71`                   |
 
 ## Template Examples
 
@@ -116,7 +117,7 @@ TEMPLATE_MINIMAL=(
 )
 ```
 
-Output: `🤖 Opus 4.5 | 💰 $1.79 | 📈 17.0%`
+Output: `🤖 Opus 4.6 | 💰 $1.79 | 📈 17.0%`
 
 ### With Custom Labels
 
@@ -128,7 +129,7 @@ TEMPLATE_CUSTOM=(
 )
 ```
 
-Output: `Model: Opus 4.5 | Cost: $1.79 | Usage: 17.0%`
+Output: `Model: Opus 4.6 | Cost: $1.79 | Usage: 17.0%`
 
 ### Multi-line with Tokens
 
@@ -143,15 +144,15 @@ TEMPLATE_DETAILED=(
 Output:
 
 ```
-Opus 4.5 | $1.79 | 17.0%
+Opus 4.6 | $1.79 | 17.0%
 Tokens: ▼43,439 ▲43,829 | Cache: 99% (56,410)
 ```
 
 ## How It Works
 
 1. Reads JSON input from Claude Code via stdin
-2. Retrieves OAuth credentials from macOS Keychain
-3. Calls the Anthropic OAuth Usage API for rate limit data
+2. Checks for cached API response (`/tmp/claude-usage-cache.json`, 1-minute TTL)
+3. On cache miss: retrieves OAuth credentials from macOS Keychain and calls the Anthropic Usage API
 4. Renders the selected template with placeholder substitution
 5. Outputs formatted statusline (single or multi-line)
 
