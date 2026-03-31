@@ -14,7 +14,8 @@ TEMPLATE="${STATUSLINE_TEMPLATE:-basic}"  # Options: basic, extended (set via en
 #   - Use "---" to start a new line
 #   - Placeholders: {model}, {cost}, {duration}, {session}, {session_reset},
 #                   {weekly}, {weekly_reset}, {context}, {context_bar},
-#                   {tokens_in}, {tokens_out}, {cache}, {version}
+#                   {tokens_in}, {tokens_out}, {cache}, {version},
+#                   {git_branch}
 #   - Add any literal text, emojis, or formatting around placeholders
 #
 # Examples:
@@ -38,6 +39,7 @@ TEMPLATE_BASIC=(
     "📈 Session: {session} [{session_reset}] | "
     "📅 Weekly: {weekly} [{weekly_reset}] | "
     "🧠 {context_bar}"
+    "{git_branch_sep}"
 )
 
 # Template: extended (two lines)
@@ -53,6 +55,7 @@ TEMPLATE_EXTENDED=(
     "⬇️ Tokens In: {tokens_in} | "
     "⬆️ Tokens Out: {tokens_out} | "
     "♻️ Cache: {cache}"
+    "{git_branch_sep}"
 )
 
 # =============================================================================
@@ -107,6 +110,13 @@ cache_read=$(echo "$input" | jq -r '.context_window.current_usage.cache_read_inp
 cache_creation=$(echo "$input" | jq -r '.context_window.current_usage.cache_creation_input_tokens // 0')
 new_input=$(echo "$input" | jq -r '.context_window.current_usage.input_tokens // 0')
 cc_version=$(echo "$input" | jq -r '.version // "N/A"')
+
+# Git branch (empty if not in a git repo)
+if git rev-parse --is-inside-work-tree &>/dev/null; then
+    git_branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
+else
+    git_branch=""
+fi
 
 # From Anthropic API
 session_pct=$(echo "$usage_response" | jq -r 'if .five_hour.utilization != null then ((.five_hour.utilization | tostring) + "%") else "N/A" end')
@@ -175,6 +185,13 @@ else
 fi
 P_CACHE="${cache_pct}% ($(printf "%'d" "$cache_read"))"
 P_VERSION="v$cc_version"
+P_GIT_BRANCH="$git_branch"
+# Conditional separator: " | 🌿 branch" if in a repo, empty otherwise
+if [[ -n "$git_branch" ]]; then
+    P_GIT_BRANCH_SEP=" | 🌿 $git_branch"
+else
+    P_GIT_BRANCH_SEP=""
+fi
 
 # =============================================================================
 # Render template
@@ -197,6 +214,8 @@ render_line() {
     line="${line//\{cache\}/$P_CACHE}"
     line="${line//\{context_bar\}/$P_CONTEXT_BAR}"
     line="${line//\{version\}/$P_VERSION}"
+    line="${line//\{git_branch\}/$P_GIT_BRANCH}"
+    line="${line//\{git_branch_sep\}/$P_GIT_BRANCH_SEP}"
 
     echo "$line"
 }
