@@ -59,46 +59,13 @@ TEMPLATE_EXTENDED=(
 )
 
 # =============================================================================
-# Data fetching
+# Extract raw data
 # =============================================================================
 
 # Read JSON input from stdin
 input=$(cat)
 
-# Usage API cache
-CACHE_FILE="/tmp/claude-usage-cache.json"
-CACHE_MAX_AGE=60  # 1 minute
-
-# Use cache if fresh
-if [[ -f "$CACHE_FILE" ]]; then
-    cache_age=$(( $(date +%s) - $(stat -f %m "$CACHE_FILE") ))
-    if [[ $cache_age -lt $CACHE_MAX_AGE ]]; then
-        usage_response=$(cat "$CACHE_FILE")
-    fi
-fi
-
-# Fetch if no cached response
-if [[ -z "$usage_response" ]]; then
-    credentials=$(security find-generic-password -a "$USER" -s "Claude Code-credentials" -w 2>/dev/null)
-    access_token=$(echo "$credentials" | jq -r '.claudeAiOauth.accessToken')
-
-    usage_response=$(curl --silent --fail-with-body --request GET \
-        --url https://api.anthropic.com/api/oauth/usage \
-        --header 'anthropic-beta: oauth-2025-04-20' \
-        --header "authorization: Bearer $access_token" \
-        --header 'content-type: application/json' \
-        --header 'user-agent: claude-code/2.1.71')
-
-    if [[ $? -eq 0 && -n "$usage_response" ]]; then
-        echo "$usage_response" > "$CACHE_FILE"
-    fi
-fi
-
-# =============================================================================
-# Extract raw data
-# =============================================================================
-
-# From Claude Code input
+# Model, cost, context, and tokens
 model_name=$(echo "$input" | jq -r '.model.display_name')
 session_cost=$(echo "$input" | jq -r '(.cost.total_cost_usd // 0) | . * 100 | round / 100 | tostring | if contains(".") then (. + "00")[0:index(".")+3] else . + ".00" end')
 context_pct=$(echo "$input" | jq -r '.context_window.used_percentage // 0')
@@ -118,14 +85,15 @@ else
     git_branch=""
 fi
 
-# From Anthropic API
-session_pct=$(echo "$usage_response" | jq -r 'if .five_hour.utilization != null then ((.five_hour.utilization | tostring) + "%") else "N/A" end')
-weekly_pct=$(echo "$usage_response" | jq -r 'if .seven_day.utilization != null then ((.seven_day.utilization | tostring) + "%") else "N/A" end')
+# Rate limits (from input JSON)
+session_pct=$(echo "$input" | jq -r '.rate_limits.five_hour.used_percentage // empty | tostring + "%"')
+weekly_pct=$(echo "$input" | jq -r '.rate_limits.seven_day.used_percentage // empty | tostring + "%"')
+session_pct="${session_pct:-N/A}"
+weekly_pct="${weekly_pct:-N/A}"
 
 # Calculate session reset time
-resets_at=$(echo "$usage_response" | jq -r '.five_hour.resets_at // empty')
-if [[ -n "$resets_at" ]]; then
-    resets_epoch=$(TZ=UTC date -j -f "%Y-%m-%dT%H:%M:%S" "${resets_at%%.*}" +%s 2>/dev/null)
+resets_epoch=$(echo "$input" | jq -r '.rate_limits.five_hour.resets_at // empty')
+if [[ -n "$resets_epoch" ]]; then
     now_epoch=$(date +%s)
     diff_seconds=$((resets_epoch - now_epoch))
     hours=$((diff_seconds / 3600))
@@ -136,9 +104,8 @@ else
 fi
 
 # Calculate weekly reset time
-weekly_resets_at=$(echo "$usage_response" | jq -r '.seven_day.resets_at // empty')
-if [[ -n "$weekly_resets_at" ]]; then
-    weekly_resets_epoch=$(TZ=UTC date -j -f "%Y-%m-%dT%H:%M:%S" "${weekly_resets_at%%.*}" +%s 2>/dev/null)
+weekly_resets_epoch=$(echo "$input" | jq -r '.rate_limits.seven_day.resets_at // empty')
+if [[ -n "$weekly_resets_epoch" ]]; then
     weekly_reset=$(date -j -f "%s" "$weekly_resets_epoch" "+%a %-l:%M%p")
 else
     weekly_reset="N/A"
