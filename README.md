@@ -7,14 +7,14 @@ Custom statusline script for Claude Code that displays real-time usage metrics w
 **Basic template** (single line):
 
 ```
-🤖 Opus 4.6 | 💰 $1.79 | 📈 Session: 17% [0h 31m] | 📅 Weekly: 4% [Thu 10:59AM] | 🧠 █░░░░░░░░░ 5% (50k/1000k) | 🌿 main
+🤖 Opus 4.6 | 💰 $1.79 | 📈 17% [0h 31m] | 📅 4% [Thu 10:59AM] | 🧠 █░░░░░░░░░ 5% (50k/1000k) | 🌿 main | 📁 my-project
 ```
 
 **Extended template** (two lines):
 
 ```
-🤖 Opus 4.6 | 💰 $1.79 | ⏱️ 21m 39s | 📈 Session: 17% [0h 31m] | 📅 Weekly: 4% [Thu 10:59AM] | 🧠 Context: 5%
-🚀 Claude Code v2.1.87 | ⬇️ Tokens In: 43,439 | ⬆️ Tokens Out: 43,829 | ♻️ Cache: 99% (56,410) | 🌿 main
+🤖 Opus 4.6 | 💰 $1.79 | ⏱️ 21m 39s | 📈 17% [0h 31m] | 📅 4% [Thu 10:59AM] | 🧠 Context: 5%
+🚀 Claude Code v2.1.87 | ⬇️ Tokens In: 43,439 | ⬆️ Tokens Out: 43,829 | ♻️ Cache: 99% (56,410) | 🌿 main | 📁 my-project
 ```
 
 ## Requirements
@@ -100,6 +100,7 @@ TEMPLATE_CUSTOM=(
 | `{tokens_out}`     | Total output tokens                 | `43,829`                    |
 | `{cache}`          | Cache hit rate and count            | `99% (56,410)`              |
 | `{version}`        | Claude Code version                 | `v2.1.87`                   |
+| `{project}`        | Project directory name              | `my-project`                |
 | `{git_branch}`     | Current git branch name             | `main`                      |
 | `{git_branch_sep}` | Branch with separator (if in repo)  | ` \| 🌿 main`               |
 
