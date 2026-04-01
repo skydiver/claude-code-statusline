@@ -70,7 +70,7 @@ input=$(cat)
 # Model, cost, context, and tokens
 model_name=$(echo "$input" | jq -r '.model.display_name')
 session_cost=$(echo "$input" | jq -r '(.cost.total_cost_usd // 0) | . * 100 | round / 100 | tostring | if contains(".") then (. + "00")[0:index(".")+3] else . + ".00" end')
-context_pct=$(echo "$input" | jq -r '.context_window.used_percentage // 0')
+context_pct=$(echo "$input" | jq -r '.context_window.used_percentage // 0 | round')
 context_size=$(echo "$input" | jq -r '.context_window.context_window_size // 0')
 duration_ms=$(echo "$input" | jq -r '.cost.total_duration_ms // 0')
 total_input=$(echo "$input" | jq -r '.context_window.total_input_tokens // 0')
@@ -89,8 +89,8 @@ else
 fi
 
 # Rate limits (from input JSON)
-session_pct=$(echo "$input" | jq -r '.rate_limits.five_hour.used_percentage // empty | tostring + "%"')
-weekly_pct=$(echo "$input" | jq -r '.rate_limits.seven_day.used_percentage // empty | tostring + "%"')
+session_pct=$(echo "$input" | jq -r '.rate_limits.five_hour.used_percentage // empty | round | tostring + "%"')
+weekly_pct=$(echo "$input" | jq -r '.rate_limits.seven_day.used_percentage // empty | round | tostring + "%"')
 session_pct="${session_pct:-N/A}"
 weekly_pct="${weekly_pct:-N/A}"
 
