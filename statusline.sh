@@ -21,8 +21,8 @@ TEMPLATE="${STATUSLINE_TEMPLATE:-basic}"  # Options: basic, extended (set via en
 # Examples:
 #   "🤖 {model}"                            -> 🤖 Opus 4.6
 #   "💰 {cost}"                             -> 💰 $1.79
-#   "📈 Session: {session}"                 -> 📈 Session: 17.0%
-#   "{session} (Resets in {session_reset})" -> 17.0% (Resets in 0h 31m)
+#   "📈 Session: {session}"                 -> 📈 Session: 17%
+#   "{session} (Resets in {session_reset})" -> 17% (Resets in 0h 31m)
 #
 # Multi-line example:
 #   TEMPLATE_CUSTOM=(
