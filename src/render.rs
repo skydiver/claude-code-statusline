@@ -55,6 +55,9 @@ fn is_ident_continue(c: char) -> bool {
 fn dispatch(name: &str, input: &Input) -> String {
     match name {
         "model" => modules::model::render(input),
+        "cost" => modules::cost::render(input),
+        "project" => modules::project::render(input),
+        "version" => modules::version::render(input),
         unknown => {
             eprintln!("ccline: unknown module '${unknown}' in format string");
             String::new()

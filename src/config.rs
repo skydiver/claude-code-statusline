@@ -13,7 +13,7 @@ pub struct Config {
 impl Default for Config {
     fn default() -> Self {
         Self {
-            format: String::from("🤖 $model"),
+            format: String::from("🤖 $model | 💰 $cost | 📁 $project"),
         }
     }
 }
