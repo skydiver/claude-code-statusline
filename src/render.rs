@@ -68,6 +68,8 @@ fn dispatch(name: &str, input: &Input) -> String {
         "session_reset" => modules::rate_limits::render_session_reset(input),
         "weekly" => modules::rate_limits::render_weekly(input),
         "weekly_reset" => modules::rate_limits::render_weekly_reset(input),
+        "git_branch" => modules::git_branch::render_name(input),
+        "git_branch_sep" => modules::git_branch::render_sep(input),
         unknown => {
             eprintln!("ccline: unknown module '${unknown}' in format string");
             String::new()
@@ -140,5 +142,20 @@ mod tests {
         let input = Input::default();
         let out = render("[$nope]", &input);
         assert_eq!(out, "[]");
+    }
+
+    #[test]
+    fn literal_newline_passes_through_for_multiline_output() {
+        // TOML decodes \n in a basic string to a real newline, and the parser
+        // streams literal chars verbatim — so multi-line formats Just Work
+        // without any dedicated rendering hook.
+        let input = Input {
+            model: Some(Model {
+                display_name: Some("Opus 4.6".into()),
+            }),
+            ..Default::default()
+        };
+        let out = render("$model\nline 2", &input);
+        assert_eq!(out, "Opus 4.6\nline 2");
     }
 }
