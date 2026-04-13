@@ -64,6 +64,10 @@ fn dispatch(name: &str, input: &Input) -> String {
         "cache" => modules::cache::render(input),
         "context" => modules::context::render_percent(input),
         "context_bar" => modules::context::render_bar(input),
+        "session" => modules::rate_limits::render_session(input),
+        "session_reset" => modules::rate_limits::render_session_reset(input),
+        "weekly" => modules::rate_limits::render_weekly(input),
+        "weekly_reset" => modules::rate_limits::render_weekly_reset(input),
         unknown => {
             eprintln!("ccline: unknown module '${unknown}' in format string");
             String::new()
