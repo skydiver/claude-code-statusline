@@ -62,6 +62,8 @@ fn dispatch(name: &str, input: &Input) -> String {
         "tokens_in" => modules::tokens::render_in(input),
         "tokens_out" => modules::tokens::render_out(input),
         "cache" => modules::cache::render(input),
+        "context" => modules::context::render_percent(input),
+        "context_bar" => modules::context::render_bar(input),
         unknown => {
             eprintln!("ccline: unknown module '${unknown}' in format string");
             String::new()
