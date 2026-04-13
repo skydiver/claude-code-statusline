@@ -11,7 +11,7 @@
 
 use serde::Deserialize;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Default, Deserialize)]
 pub struct Input {
     pub model: Option<Model>,
     pub version: Option<String>,
@@ -21,18 +21,18 @@ pub struct Input {
     pub workspace: Option<Workspace>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Default, Deserialize)]
 pub struct Model {
     pub display_name: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Default, Deserialize)]
 pub struct Cost {
     pub total_cost_usd: Option<f64>,
     pub total_duration_ms: Option<u64>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Default, Deserialize)]
 pub struct ContextWindow {
     pub used_percentage: Option<f64>,
     pub context_window_size: Option<u64>,
@@ -41,26 +41,26 @@ pub struct ContextWindow {
     pub current_usage: Option<CurrentUsage>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Default, Deserialize)]
 pub struct CurrentUsage {
     pub input_tokens: Option<u64>,
     pub cache_read_input_tokens: Option<u64>,
     pub cache_creation_input_tokens: Option<u64>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Default, Deserialize)]
 pub struct RateLimits {
     pub five_hour: Option<RateLimitWindow>,
     pub seven_day: Option<RateLimitWindow>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Default, Deserialize)]
 pub struct RateLimitWindow {
     pub used_percentage: Option<f64>,
     pub resets_at: Option<i64>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Default, Deserialize)]
 pub struct Workspace {
     pub project_dir: Option<String>,
 }

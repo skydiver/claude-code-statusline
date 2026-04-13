@@ -7,6 +7,7 @@ mod style;
 use std::io::{self, Read};
 use std::process::ExitCode;
 
+use config::Config;
 use input::Input;
 
 fn main() -> ExitCode {
@@ -26,13 +27,9 @@ fn main() -> ExitCode {
         }
     };
 
-    let model = input
-        .model
-        .as_ref()
-        .and_then(|m| m.display_name.as_deref())
-        .unwrap_or("unknown");
-    let version = input.version.as_deref().unwrap_or("?");
-    println!("ccline (phase 1) | model={model} | cc={version}");
+    let config = Config::load();
+    let line = render::render(&config.format, &input);
+    println!("{line}");
 
     ExitCode::SUCCESS
 }
