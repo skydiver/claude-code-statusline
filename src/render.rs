@@ -58,6 +58,10 @@ fn dispatch(name: &str, input: &Input) -> String {
         "cost" => modules::cost::render(input),
         "project" => modules::project::render(input),
         "version" => modules::version::render(input),
+        "duration" => modules::duration::render(input),
+        "tokens_in" => modules::tokens::render_in(input),
+        "tokens_out" => modules::tokens::render_out(input),
+        "cache" => modules::cache::render(input),
         unknown => {
             eprintln!("ccline: unknown module '${unknown}' in format string");
             String::new()
