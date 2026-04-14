@@ -7,18 +7,18 @@
 //!
 //! - `$session` and `$weekly`: `used_percentage` rounded to an integer, suffixed `%`.
 //! - `$session_reset`: countdown `Xh Ym` from wall clock to `resets_at`.
-//! - `$weekly_reset`: localized date via the system `date` binary (`Mon 3:00PM`).
-//!
-//! The 7-day reset shells out to `date -j -f %s <epoch> +"%a %-l:%M%p"` (BSD
-//! form, macOS). This keeps dependencies at zero and preserves byte-identical
-//! output with the shell script.
+//! - `$weekly_reset`: localized date formatted in the system timezone via
+//!   `jiff` (`Mon 3:00PM`). No subprocess, no platform-specific `date` flags.
 
-use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
+
+use jiff::Timestamp;
+use jiff::tz::TimeZone;
 
 use crate::input::{Input, RateLimitWindow};
 
 const NA: &str = "N/A";
+const WEEKLY_FMT: &str = "%a %-I:%M%p";
 
 fn five_hour(input: &Input) -> Option<&RateLimitWindow> {
     input.rate_limits.as_ref().and_then(|r| r.five_hour.as_ref())
@@ -50,20 +50,13 @@ fn now_epoch() -> i64 {
 }
 
 fn format_weekly_date(epoch: i64) -> Option<String> {
-    let out = Command::new("date")
-        .args(["-j", "-f", "%s", &epoch.to_string(), "+%a %-l:%M%p"])
-        .output()
-        .ok()?;
-    if !out.status.success() {
-        return None;
-    }
-    let s = String::from_utf8(out.stdout).ok()?;
-    let trimmed = s.trim();
-    if trimmed.is_empty() {
-        None
-    } else {
-        Some(trimmed.to_string())
-    }
+    format_weekly_date_in_tz(epoch, TimeZone::system())
+}
+
+fn format_weekly_date_in_tz(epoch: i64, tz: TimeZone) -> Option<String> {
+    let ts = Timestamp::from_second(epoch).ok()?;
+    let zoned = ts.to_zoned(tz);
+    jiff::fmt::strtime::format(WEEKLY_FMT, &zoned).ok()
 }
 
 pub fn render_session(input: &Input) -> String {
@@ -160,5 +153,28 @@ mod tests {
     #[test]
     fn weekly_reset_na_when_missing() {
         assert_eq!(render_weekly_reset(&Input::default()), "N/A");
+    }
+
+    #[test]
+    fn format_weekly_date_renders_pm_case() {
+        // 2023-11-14 22:13:20 UTC → "Tue 10:13PM"
+        assert_eq!(
+            format_weekly_date_in_tz(1_700_000_000, TimeZone::UTC),
+            Some("Tue 10:13PM".into())
+        );
+    }
+
+    #[test]
+    fn format_weekly_date_renders_am_case() {
+        // 2023-11-15 08:00:00 UTC → "Wed 8:00AM"
+        assert_eq!(
+            format_weekly_date_in_tz(1_700_035_200, TimeZone::UTC),
+            Some("Wed 8:00AM".into())
+        );
+    }
+
+    #[test]
+    fn format_weekly_date_rejects_invalid_epoch() {
+        assert_eq!(format_weekly_date_in_tz(i64::MAX, TimeZone::UTC), None);
     }
 }
