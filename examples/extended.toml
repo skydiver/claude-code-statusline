@@ -6,5 +6,5 @@
 
 format = """
 🤖 $model | 💰 $cost | ⏱️ $duration | 📈 $session [$session_reset] | 📅 $weekly [$weekly_reset] | 🧠 Context: $context
-🚀 Claude Code $version | ⬇️ Tokens In: $tokens_in | ⬆️ Tokens Out: $tokens_out | ♻️ Cache: $cache ( | 🌿 $git_branch) | 📁 $project\
+🚀 Claude Code $version | ⬇️ Tokens In: $tokens_in | ⬆️ Tokens Out: $tokens_out | ♻️ Cache: $cache ( | 🌿 $git_branch ) | 📁 $project\
 """

@@ -47,15 +47,30 @@ fn parse_tokens(chars: &mut Peekable<Chars>, in_group: bool) -> Vec<Token> {
 
         if c == '(' {
             chars.next();
-            // A space typed right before `(` reads as "part of the
-            // conditional region" — so absorb trailing whitespace from the
-            // pending literal into the group. To keep old `$context_bar( |
-            // 🌿 ...)` source and new `$context_bar ( | 🌿 ...)` source
-            // rendering identically, we also strip leading whitespace from
-            // the group's first literal child so the two don't double up.
+            // Whitespace directly adjacent to `(` or `)` is cosmetic
+            // padding, not significant content. A space typed right before
+            // `(` gets absorbed into the group so it disappears along with
+            // the group when suppressed; a space typed right after `(` or
+            // right before `)` gets stripped so symmetric source like
+            // `$ctx ( | 🌿 $x )` parses identically to `$ctx( | 🌿 $x)`
+            // and the old tight form `$ctx ( | 🌿 $x)`.
             let absorbed = take_trailing_whitespace(&mut literal);
             flush_literal(&mut tokens, &mut literal);
             let mut children = parse_tokens(chars, true);
+
+            // Strip trailing inner whitespace (next to `)`).
+            if let Some(Token::Literal(last)) = children.last_mut() {
+                let trimmed = last.trim_end().to_string();
+                if trimmed.is_empty() {
+                    children.pop();
+                } else {
+                    *last = trimmed;
+                }
+            }
+
+            // Merge absorbed outer ws with the (trimmed) first literal
+            // child, so the leading separator space is carried by the
+            // group — only renders when the group renders.
             if !absorbed.is_empty() {
                 match children.first_mut() {
                     Some(Token::Literal(first)) => {
@@ -447,6 +462,44 @@ mod tests {
             render("$model ( | $model)", &input),
             render("$model( | $model)", &input),
         );
+    }
+
+    #[test]
+    fn trailing_whitespace_inside_group_is_stripped() {
+        // Cosmetic padding next to `)` should not render — otherwise it
+        // would double up against the unconditional separator that
+        // follows the group.
+        assert_eq!(
+            parse_format("(abc )"),
+            vec![Token::Group(vec![Token::Literal("abc".into())])]
+        );
+    }
+
+    #[test]
+    fn symmetric_group_padding_parses_like_tight_form() {
+        // All three source forms must parse to identical token trees:
+        //   `$ctx ( | $x )` — symmetric padding
+        //   `$ctx (| $x)`   — tight, outer space only
+        //   `$ctx( | $x)`   — legacy, no outer space
+        let symmetric = parse_format("$ctx ( | $x )");
+        let tight = parse_format("$ctx (| $x)");
+        let legacy = parse_format("$ctx( | $x)");
+        assert_eq!(symmetric, tight);
+        assert_eq!(symmetric, legacy);
+    }
+
+    #[test]
+    fn symmetric_group_padding_renders_cleanly_when_present() {
+        // No trailing space after `$model` because the inner trailing
+        // space was stripped at parse time.
+        let out = render("x ( | $model )y", &input_with_model());
+        assert_eq!(out, "x | Opus 4.6y");
+    }
+
+    #[test]
+    fn symmetric_group_padding_suppresses_when_empty() {
+        let out = render("x ( | $version )y", &Input::default());
+        assert_eq!(out, "xy");
     }
 
     #[test]
