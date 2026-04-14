@@ -1,0 +1,10 @@
+# claude-code-statusline — extended template
+#
+# Two-line layout matching the shell script's EXTENDED template.
+# Uses a TOML multi-line basic string for readability. The literal
+# newline between the two lines is preserved in the rendered output.
+
+format = """
+🤖 $model | 💰 $cost | ⏱️ $duration | 📈 Session: $session [$session_reset] | 📅 Weekly: $weekly [$weekly_reset] | 🧠 Context: $context
+🚀 Claude Code $version | ⬇️ Tokens In: $tokens_in | ⬆️ Tokens Out: $tokens_out | ♻️ Cache: $cache$git_branch_sep\
+"""
