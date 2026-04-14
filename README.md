@@ -21,11 +21,11 @@ This is the v2 rewrite of the original shell script. The previous Bash implement
 
 ## Requirements
 
-- macOS (only supported platform for v2)
+- macOS, Linux, or Windows
 - Rust stable (for building)
 - Claude Code v2.x or later
 
-The binary depends only on `serde`, `serde_json`, `toml`, and `anyhow` at build time. At runtime it shells out to the system `git` and `date` binaries — both shipped with macOS.
+Build dependencies: `serde`, `serde_json`, `toml`, `anyhow`, `jiff` (cross-platform timezone-aware date formatting), and `dirs` (cross-platform home directory resolution). No runtime dependencies — the binary reads `.git/HEAD` directly and formats dates in-process, so it does not shell out to `git` or `date`.
 
 ## Installation
 
@@ -37,7 +37,7 @@ cd claude-code-statusline
 make
 ```
 
-`make` runs `cargo build --release` and stages the binary at `dist/ccline` (~855K). If you prefer Cargo directly, `cargo build --release` produces the same binary at `target/release/ccline`.
+`make` runs `cargo build --release` and stages the binary at `dist/ccline` (~1.2 MB). If you prefer Cargo directly, `cargo build --release` produces the same binary at `target/release/ccline`.
 
 ### Wire into Claude Code
 
@@ -139,13 +139,14 @@ cat tests/fixtures/sample_input.json | ./dist/ccline
 
 ## Migrating from the Bash version
 
-| v1 (shell)                           | v2 (`ccline`)                                                 |
-| ------------------------------------ | ------------------------------------------------------------- |
-| `statusline.sh` + `jq` at runtime    | Single binary, no runtime deps beyond system `git` and `date` |
-| `STATUSLINE_TEMPLATE` env var        | `format` field in TOML config                                 |
-| Bash template arrays with `---`      | TOML multi-line string with literal `\n`                      |
-| `{placeholder}` syntax               | `$module` syntax (Starship-style)                             |
-| `{git_branch_sep}` (baked separator) | `$git_branch_sep` (same behavior, same name)                  |
+| v1 (shell)                           | v2 (`ccline`)                                   |
+| ------------------------------------ | ----------------------------------------------- |
+| `statusline.sh` + `jq` at runtime    | Single self-contained binary, zero runtime deps |
+| macOS only (BSD `date` flags)        | macOS, Linux, and Windows                       |
+| `STATUSLINE_TEMPLATE` env var        | `format` field in TOML config                   |
+| Bash template arrays with `---`      | TOML multi-line string with literal `\n`        |
+| `{placeholder}` syntax               | `$module` syntax (Starship-style)               |
+| `{git_branch_sep}` (baked separator) | `$git_branch_sep` (same behavior, same name)    |
 
 The v1 shell script remains in git history if you need to roll back.
 
