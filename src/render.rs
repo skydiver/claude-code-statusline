@@ -135,6 +135,12 @@ fn consume_ident(chars: &mut Peekable<Chars>) -> String {
 fn expand_module(name: String) -> Token {
     // Back-compat alias: `$git_branch_sep` → `( | 🌿 $git_branch)`. Old
     // configs keep rendering identically without touching their TOML.
+    //
+    // Note: the synthetic group is hand-built with its leading space
+    // baked into the first literal, so it deliberately bypasses the
+    // absorption/strip pipeline that runs at `(` parse time. Any future
+    // change to those whitespace rules should leave this branch alone —
+    // the render shape is set here, not derived from source text.
     if name == "git_branch_sep" {
         return Token::Group(vec![
             Token::Literal(" | 🌿 ".into()),
@@ -506,7 +512,40 @@ mod tests {
     fn git_branch_sep_alias_renders_via_group() {
         // In this test environment we're inside a git repo, so the alias
         // should render the absorbed separator + the branch name.
+        let _guard = cwd_guard();
         let out = render("$git_branch_sep", &Input::default());
         assert!(out.starts_with(" | 🌿 "), "got: {out:?}");
+    }
+
+    #[test]
+    fn git_branch_sep_alias_suppresses_outside_repo() {
+        // Motivating behavior of the alias: outside a git repo the whole
+        // group vanishes, not even the leading separator survives. We
+        // exercise the real end-to-end path by cd-ing to a tmpdir that
+        // has no `.git` in any ancestor, serialized against any other
+        // cwd-reading test via `cwd_guard`.
+        let _guard = cwd_guard();
+        let original = std::env::current_dir().expect("read cwd");
+        let tmp = std::env::temp_dir().join(format!(
+            "ccline_no_repo_{}_{:p}",
+            std::process::id(),
+            &original
+        ));
+        std::fs::create_dir_all(&tmp).expect("create tmpdir");
+        std::env::set_current_dir(&tmp).expect("cd tmpdir");
+
+        let out = render("$git_branch_sep", &Input::default());
+
+        std::env::set_current_dir(&original).expect("restore cwd");
+        std::fs::remove_dir(&tmp).ok();
+
+        assert_eq!(out, "", "alias must suppress outside a git repo");
+    }
+
+    fn cwd_guard() -> std::sync::MutexGuard<'static, ()> {
+        // Serialize any test that reads or mutates the process cwd so
+        // parallel test execution can't make them flaky.
+        static GUARD: std::sync::Mutex<()> = std::sync::Mutex::new(());
+        GUARD.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
     }
 }
