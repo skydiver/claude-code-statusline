@@ -1,10 +1,15 @@
 //! Config: top-level `format` string + (eventually) per-module overrides.
 //!
 //! Loads `~/.config/claude-code-statusline/config.toml`, respecting
-//! `$XDG_CONFIG_HOME`. Falls back to a baked-in default that matches the
-//! shell script's `basic` template byte-for-byte. Load failures (missing
-//! file, malformed TOML) degrade gracefully: the statusline must always
-//! print something — never crash — so `load()` always returns a `Config`.
+//! `$XDG_CONFIG_HOME`. Uses `dirs::home_dir()` so Windows resolves via
+//! `%USERPROFILE%` and the XDG-style layout stays consistent across macOS,
+//! Linux, and Windows — the same convention starship, bat, and ripgrep use
+//! rather than Apple's `~/Library/Application Support/`.
+//!
+//! Falls back to a baked-in default that matches the shell script's `basic`
+//! template byte-for-byte. Load failures (missing file, malformed TOML)
+//! degrade gracefully: the statusline must always print something — never
+//! crash — so `load()` always returns a `Config`.
 
 use std::env;
 use std::fs;
@@ -65,10 +70,8 @@ impl Config {
 fn config_path() -> Option<PathBuf> {
     let base = if let Some(xdg) = env::var_os("XDG_CONFIG_HOME").filter(|v| !v.is_empty()) {
         PathBuf::from(xdg)
-    } else if let Some(home) = env::var_os("HOME") {
-        PathBuf::from(home).join(".config")
     } else {
-        return None;
+        dirs::home_dir()?.join(".config")
     };
     Some(base.join("claude-code-statusline").join("config.toml"))
 }
