@@ -1,158 +1,131 @@
-# Claude Code Statusline
+# Claude Code Statusline (`ccline`)
 
-Custom statusline script for Claude Code that displays real-time usage metrics with fully customizable templates.
+A small Rust binary (`ccline`) that renders a customizable statusline for [Claude Code](https://docs.anthropic.com/en/docs/claude-code). Reads the session JSON from stdin, formats it using a Starship-style `format` string, and writes the result to stdout.
+
+This is the v2 rewrite of the original shell script. The previous Bash implementation lives in the git history if you need it.
 
 ## Output Examples
 
-**Basic template** (single line):
+**Basic template** (single line — the baked-in default):
 
 ```
-🤖 Opus 4.6 | 💰 $1.79 | 📈 17% [0h 31m] | 📅 4% [Thu 10:59AM] | 🧠 █░░░░░░░░░ 5% (50k/1000k) | 🌿 main | 📁 my-project
+🤖 Opus 4.6 | 💰 $1.79 | 📈 Session: 17% [0h 31m] | 📅 Weekly: 12% [Wed 9:00PM] | 🧠 █░░░░░░░░░ 17% (34k/200k) | 🌿 main
 ```
 
 **Extended template** (two lines):
 
 ```
-🤖 Opus 4.6 | 💰 $1.79 | ⏱️ 21m 39s | 📈 17% [0h 31m] | 📅 4% [Thu 10:59AM] | 🧠 Context: 5%
-🚀 Claude Code v2.1.87 | ⬇️ Tokens In: 43,439 | ⬆️ Tokens Out: 43,829 | ♻️ Cache: 99% (56,410) | 🌿 main | 📁 my-project
+🤖 Opus 4.6 | 💰 $1.79 | ⏱️ 7m 5s | 📈 Session: 17% [0h 31m] | 📅 Weekly: 12% [Wed 9:00PM] | 🧠 Context: 17%
+🚀 Claude Code v2.0.76 | ⬇️ Tokens In: 45,000 | ⬆️ Tokens Out: 3,200 | ♻️ Cache: 84% (38,000) | 🌿 main
 ```
 
 ## Requirements
 
-- `jq` for JSON parsing
-- Claude Code v2.1.x or later
+- macOS (only supported platform for v2)
+- Rust stable (for building)
+- Claude Code v2.x or later
+
+The binary depends only on `serde`, `serde_json`, `toml`, and `anyhow` at build time. At runtime it shells out to the system `git` and `date` binaries — both shipped with macOS.
 
 ## Installation
 
-1. Download `statusline.sh` and make it executable:
+Clone and build:
 
 ```bash
-chmod +x /path/to/statusline.sh
+git clone https://github.com/skydiver/claude-code-statusline.git
+cd claude-code-statusline
+cargo build --release
 ```
 
-2. Add to `~/.claude/settings.json`:
+The binary lands at `target/release/ccline` (~855K).
+
+### Wire into Claude Code
+
+Add the binary path to `~/.claude/settings.json`:
 
 ```json
 {
   "statusLine": {
     "type": "command",
-    "command": "/path/to/statusline.sh",
+    "command": "/absolute/path/to/ccline",
     "padding": 0
   }
 }
 ```
 
-3. Restart Claude Code
+Restart Claude Code. No environment variable is needed to pick a template — use the config file instead.
 
 ## Configuration
 
-### Selecting a Template
+`ccline` reads an optional TOML file from:
 
-Set the `STATUSLINE_TEMPLATE` environment variable in your `~/.claude/settings.json`:
+1. `$XDG_CONFIG_HOME/claude-code-statusline/config.toml`, if `XDG_CONFIG_HOME` is set.
+2. `$HOME/.config/claude-code-statusline/config.toml` otherwise.
 
-```json
-{
-  "env": {
-    "STATUSLINE_TEMPLATE": "extended"
-  },
-  "statusLine": {
-    "type": "command",
-    "command": "/path/to/statusline.sh",
-    "padding": 0
-  }
-}
+If the file is missing the baked-in default (equivalent to the `basic` template) is used. If the file is present but malformed, `ccline` logs the parse error to stderr **and still renders the default line** — the statusline must never break Claude Code.
+
+### Minimal example
+
+```toml
+format = "🤖 $model | 💰 $cost | 🧠 $context_bar$git_branch_sep"
 ```
 
-Available templates: `basic` (default), `extended`
+### Multi-line example
 
-### Creating Custom Templates
-
-Templates are defined as arrays in the script. Each string is concatenated, and you control separators by including them in the strings:
-
-```bash
-TEMPLATE_CUSTOM=(
-    "🤖 {model} | "
-    "💰 {cost} | "
-    "📈 Session: {session}"
-    ---
-    "🚀 {version}"
-)
+```toml
+format = """
+🤖 $model | 💰 $cost | ⏱️ $duration
+🚀 Claude Code $version | 🌿 $git_branch\
+"""
 ```
 
-- **Concatenation**: Strings are joined directly (include separators like `|` in your strings)
-- **Line breaks**: Use `---` to start a new line
-- **Full control**: Add any emojis, labels, or formatting around placeholders
+The trailing `\` before the closing `"""` strips the final newline so you don't get an empty line under the statusline. Two ready-to-copy presets live in [`examples/basic.toml`](examples/basic.toml) and [`examples/extended.toml`](examples/extended.toml).
 
 ## Available Placeholders
 
-| Placeholder        | Description                         | Example                     |
-| ------------------ | ----------------------------------- | --------------------------- |
-| `{model}`          | Current model name                  | `Opus 4.6`                  |
-| `{cost}`           | Session cost in USD                 | `$1.79`                     |
-| `{duration}`       | Session duration                    | `21m 39s`                   |
-| `{session}`        | 5-hour utilization                  | `17%`                       |
-| `{session_reset}`  | Time until session reset            | `0h 31m`                    |
-| `{weekly}`         | 7-day utilization                   | `4%`                        |
-| `{weekly_reset}`   | Weekly reset day/time               | `Thu 10:59AM`               |
-| `{context}`        | Context window usage percentage     | `5%`                        |
-| `{context_bar}`    | Visual progress bar with token info | `█░░░░░░░░░ 5% (50k/1000k)` |
-| `{tokens_in}`      | Total input tokens                  | `43,439`                    |
-| `{tokens_out}`     | Total output tokens                 | `43,829`                    |
-| `{cache}`          | Cache hit rate and count            | `99% (56,410)`              |
-| `{version}`        | Claude Code version                 | `v2.1.87`                   |
-| `{project}`        | Project directory name              | `my-project`                |
-| `{git_branch}`     | Current git branch name             | `main`                      |
-| `{git_branch_sep}` | Branch with separator (if in repo)  | ` \| 🌿 main`               |
+Each placeholder is a Starship-style `$module_name` reference. Everything else in the `format` string is literal text (including emojis, separators, and newlines).
 
-## Template Examples
+| Placeholder       | Description                                       | Example                     |
+| ----------------- | ------------------------------------------------- | --------------------------- |
+| `$model`          | Current model display name                        | `Opus 4.6`                  |
+| `$cost`           | Session cost in USD                               | `$1.79`                     |
+| `$duration`       | Session duration                                  | `7m 5s`                     |
+| `$session`        | 5-hour utilization (`N/A` if missing)             | `17%`                       |
+| `$session_reset`  | Countdown to the 5-hour reset                     | `0h 31m`                    |
+| `$weekly`         | 7-day utilization (`N/A` if missing)              | `12%`                       |
+| `$weekly_reset`   | Weekly reset weekday + time                       | `Wed 9:00PM`                |
+| `$context`        | Context window usage percentage                   | `17%`                       |
+| `$context_bar`    | 10-cell █/░ bar + percent + used_k/total_k tokens | `█░░░░░░░░░ 17% (34k/200k)` |
+| `$tokens_in`      | Total input tokens (comma-separated)              | `45,000`                    |
+| `$tokens_out`     | Total output tokens (comma-separated)             | `3,200`                     |
+| `$cache`          | Cache hit rate + cache-read count                 | `84% (38,000)`              |
+| `$version`        | Claude Code version                               | `v2.0.76`                   |
+| `$project`        | Project directory basename                        | `claude-code-statusline`    |
+| `$git_branch`     | Raw branch name (empty outside a repo)            | `master`                    |
+| `$git_branch_sep` | ` \| 🌿 <branch>` (empty outside a repo)          | ` \| 🌿 master`             |
 
-### Minimal
-
-```bash
-TEMPLATE_MINIMAL=(
-    "🤖 {model} | "
-    "💰 {cost} | "
-    "📈 {session}"
-)
-```
-
-Output: `🤖 Opus 4.6 | 💰 $1.79 | 📈 17%`
-
-### With Custom Labels
-
-```bash
-TEMPLATE_CUSTOM=(
-    "Model: {model} | "
-    "Cost: {cost} | "
-    "Usage: {session}"
-)
-```
-
-Output: `Model: Opus 4.6 | Cost: $1.79 | Usage: 17%`
-
-### Multi-line with Tokens
-
-```bash
-TEMPLATE_DETAILED=(
-    "{model} | {cost} | {session}"
-    ---
-    "Tokens: ▼{tokens_in} ▲{tokens_out} | Cache: {cache}"
-)
-```
-
-Output:
-
-```
-Opus 4.6 | $1.79 | 17%
-Tokens: ▼43,439 ▲43,829 | Cache: 99% (56,410)
-```
+`$git_branch_sep` exists because it absorbs its own leading separator — so when you're not in a git repo nothing renders and you don't get an awkward trailing ` | 🌿` in the output.
 
 ## How It Works
 
-1. Reads JSON input from Claude Code via stdin (includes model, cost, context, rate limits, and version)
-2. Extracts values and computes derived metrics (cache hit rate, reset countdowns, context bar)
-3. Renders the selected template with placeholder substitution
-4. Outputs formatted statusline (single or multi-line)
+1. Reads the Claude Code session JSON from stdin into a typed `Input` struct (all fields optional for forward compat).
+2. Loads the TOML config file, falling back to the baked-in default.
+3. Parses the `format` string into a sequence of literal and `$module` tokens.
+4. Dispatches each `$module` to its renderer and writes the concatenated result to stdout.
+
+Parse errors for either the JSON or the config file are logged to stderr. stdout always receives a valid line.
+
+## Migrating from the Bash version
+
+| v1 (shell)                           | v2 (`ccline`)                                                 |
+| ------------------------------------ | ------------------------------------------------------------- |
+| `statusline.sh` + `jq` at runtime    | Single binary, no runtime deps beyond system `git` and `date` |
+| `STATUSLINE_TEMPLATE` env var        | `format` field in TOML config                                 |
+| Bash template arrays with `---`      | TOML multi-line string with literal `\n`                      |
+| `{placeholder}` syntax               | `$module` syntax (Starship-style)                             |
+| `{git_branch_sep}` (baked separator) | `$git_branch_sep` (same behavior, same name)                  |
+
+The v1 shell script remains in git history if you need to roll back.
 
 ## License
 
