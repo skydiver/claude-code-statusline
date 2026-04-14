@@ -57,12 +57,15 @@ Restart Claude Code. No environment variable is needed to pick a template — us
 
 ## Configuration
 
-`ccline` reads an optional TOML file from:
+`ccline` reads an optional TOML file from (in order of precedence):
 
-1. `$XDG_CONFIG_HOME/claude-code-statusline/config.toml`, if `XDG_CONFIG_HOME` is set.
-2. `$HOME/.config/claude-code-statusline/config.toml` otherwise.
+1. `$CCLINE_CONFIG`, if set to a non-empty path. Lets you point `ccline` at any file — handy for switching between layouts without moving files around.
+2. `$XDG_CONFIG_HOME/claude-code-statusline/config.toml`, if `XDG_CONFIG_HOME` is set.
+3. `$HOME/.config/claude-code-statusline/config.toml` otherwise.
 
-If the file is missing the baked-in default (equivalent to the `basic` template) is used. If the file is present but malformed, `ccline` logs the parse error to stderr **and still renders the default line** — the statusline must never break Claude Code.
+If the file is missing the baked-in default (equivalent to the `basic` template) is used. If the file is present but malformed, `ccline` logs the parse error to stderr **and still renders the default line** — the statusline must never break Claude Code. When `CCLINE_CONFIG` points at a missing or unreadable file, the read error is also logged to stderr so a typo'd path doesn't fail silently.
+
+`CCLINE_CONFIG` is handy for keeping multiple layouts side-by-side (e.g. one for work, one for personal) and pointing `ccline` at whichever one you want via your shell environment or launcher config.
 
 ### Minimal example
 

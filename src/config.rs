@@ -1,10 +1,17 @@
 //! Config: top-level `format` string + (eventually) per-module overrides.
 //!
-//! Loads `~/.config/claude-code-statusline/config.toml`, respecting
-//! `$XDG_CONFIG_HOME`. Uses `dirs::home_dir()` so Windows resolves via
-//! `%USERPROFILE%` and the XDG-style layout stays consistent across macOS,
-//! Linux, and Windows — the same convention starship, bat, and ripgrep use
-//! rather than Apple's `~/Library/Application Support/`.
+//! Resolution precedence:
+//!
+//! 1. `$CCLINE_CONFIG` — if set and non-empty, points at an explicit file.
+//!    A missing or unreadable file at that path is logged to stderr (the
+//!    user explicitly asked for it, so a typo shouldn't fail silently).
+//! 2. `$XDG_CONFIG_HOME/claude-code-statusline/config.toml`
+//! 3. `$HOME/.config/claude-code-statusline/config.toml`
+//!
+//! Uses `dirs::home_dir()` so Windows resolves via `%USERPROFILE%` and the
+//! XDG-style layout stays consistent across macOS, Linux, and Windows — the
+//! same convention starship, bat, and ripgrep use rather than Apple's
+//! `~/Library/Application Support/`.
 //!
 //! Falls back to a baked-in default that matches the shell script's `basic`
 //! template byte-for-byte. Load failures (missing file, malformed TOML)
@@ -12,8 +19,9 @@
 //! crash — so `load()` always returns a `Config`.
 
 use std::env;
+use std::ffi::OsStr;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use serde::Deserialize;
 
@@ -39,12 +47,23 @@ impl Default for Config {
 
 impl Config {
     pub fn load() -> Self {
-        let Some(path) = config_path() else {
+        let Some((path, explicit)) = config_path() else {
             return Self::default();
         };
         let raw = match fs::read_to_string(&path) {
             Ok(s) => s,
-            Err(_) => return Self::default(),
+            Err(e) => {
+                if explicit {
+                    // Only log when the user explicitly pointed at a
+                    // file via CCLINE_CONFIG — a missing XDG/HOME file
+                    // is normal and shouldn't spam stderr.
+                    eprintln!(
+                        "ccline: failed to read CCLINE_CONFIG at {}: {e}",
+                        path.display()
+                    );
+                }
+                return Self::default();
+            }
         };
         match Self::from_toml_str(&raw) {
             Ok(cfg) => cfg,
@@ -67,13 +86,30 @@ impl Config {
     }
 }
 
-fn config_path() -> Option<PathBuf> {
-    let base = if let Some(xdg) = env::var_os("XDG_CONFIG_HOME").filter(|v| !v.is_empty()) {
+fn config_path() -> Option<(PathBuf, bool)> {
+    let ccline = env::var_os("CCLINE_CONFIG");
+    let xdg = env::var_os("XDG_CONFIG_HOME");
+    let home = dirs::home_dir();
+    resolve_config_path(ccline.as_deref(), xdg.as_deref(), home.as_deref())
+}
+
+fn resolve_config_path(
+    ccline_config: Option<&OsStr>,
+    xdg_config_home: Option<&OsStr>,
+    home_dir: Option<&Path>,
+) -> Option<(PathBuf, bool)> {
+    if let Some(explicit) = ccline_config.filter(|v| !v.is_empty()) {
+        return Some((PathBuf::from(explicit), true));
+    }
+    let base = if let Some(xdg) = xdg_config_home.filter(|v| !v.is_empty()) {
         PathBuf::from(xdg)
     } else {
-        dirs::home_dir()?.join(".config")
+        home_dir?.join(".config")
     };
-    Some(base.join("claude-code-statusline").join("config.toml"))
+    Some((
+        base.join("claude-code-statusline").join("config.toml"),
+        false,
+    ))
 }
 
 #[cfg(test)]
@@ -125,6 +161,71 @@ mod tests {
     #[test]
     fn from_toml_str_surfaces_parse_errors() {
         assert!(Config::from_toml_str("format = ").is_err());
+    }
+
+    #[test]
+    fn resolve_config_path_prefers_explicit_ccline_config() {
+        let (path, explicit) = resolve_config_path(
+            Some(OsStr::new("/etc/ccline/custom.toml")),
+            Some(OsStr::new("/xdg")),
+            Some(Path::new("/home/martin")),
+        )
+        .expect("some");
+        assert_eq!(path, PathBuf::from("/etc/ccline/custom.toml"));
+        assert!(explicit);
+    }
+
+    #[test]
+    fn resolve_config_path_empty_ccline_config_falls_through() {
+        // Empty-string env vars are treated as unset — same rule we
+        // already apply to XDG_CONFIG_HOME so the two vars behave
+        // consistently.
+        let (path, explicit) = resolve_config_path(
+            Some(OsStr::new("")),
+            Some(OsStr::new("/xdg")),
+            Some(Path::new("/home/martin")),
+        )
+        .expect("some");
+        assert_eq!(
+            path,
+            PathBuf::from("/xdg/claude-code-statusline/config.toml")
+        );
+        assert!(!explicit);
+    }
+
+    #[test]
+    fn resolve_config_path_uses_xdg_when_ccline_config_unset() {
+        let (path, explicit) = resolve_config_path(
+            None,
+            Some(OsStr::new("/xdg")),
+            Some(Path::new("/home/martin")),
+        )
+        .expect("some");
+        assert_eq!(
+            path,
+            PathBuf::from("/xdg/claude-code-statusline/config.toml")
+        );
+        assert!(!explicit);
+    }
+
+    #[test]
+    fn resolve_config_path_falls_back_to_home_dir() {
+        let (path, explicit) = resolve_config_path(
+            None,
+            None,
+            Some(Path::new("/home/martin")),
+        )
+        .expect("some");
+        assert_eq!(
+            path,
+            PathBuf::from("/home/martin/.config/claude-code-statusline/config.toml")
+        );
+        assert!(!explicit);
+    }
+
+    #[test]
+    fn resolve_config_path_none_when_no_home_and_no_xdg() {
+        assert!(resolve_config_path(None, None, None).is_none());
     }
 
     #[test]
