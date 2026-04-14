@@ -9,14 +9,14 @@ This is the v2 rewrite of the original shell script. The previous Bash implement
 **Basic template** (single line — the baked-in default):
 
 ```
-🤖 Opus 4.6 | 💰 $1.79 | 📈 Session: 17% [0h 31m] | 📅 Weekly: 12% [Wed 9:00PM] | 🧠 █░░░░░░░░░ 17% (34k/200k) | 🌿 main
+🤖 Opus 4.6 | 💰 $1.79 | 📈 17% [0h 31m] | 📅 12% [Wed 9:00PM] | 🧠 █░░░░░░░░░ 17% (34k/200k) | 🌿 main | 📁 my-project
 ```
 
 **Extended template** (two lines):
 
 ```
-🤖 Opus 4.6 | 💰 $1.79 | ⏱️ 7m 5s | 📈 Session: 17% [0h 31m] | 📅 Weekly: 12% [Wed 9:00PM] | 🧠 Context: 17%
-🚀 Claude Code v2.0.76 | ⬇️ Tokens In: 45,000 | ⬆️ Tokens Out: 3,200 | ♻️ Cache: 84% (38,000) | 🌿 main
+🤖 Opus 4.6 | 💰 $1.79 | ⏱️ 7m 5s | 📈 17% [0h 31m] | 📅 12% [Wed 9:00PM] | 🧠 Context: 17%
+🚀 Claude Code v2.0.76 | ⬇️ Tokens In: 45,000 | ⬆️ Tokens Out: 3,200 | ♻️ Cache: 84% (38,000) | 🌿 main | 📁 my-project
 ```
 
 ## Requirements

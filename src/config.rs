@@ -12,7 +12,7 @@ use std::path::PathBuf;
 
 use serde::Deserialize;
 
-pub const DEFAULT_FORMAT: &str = "🤖 $model | 💰 $cost | 📈 Session: $session [$session_reset] | 📅 Weekly: $weekly [$weekly_reset] | 🧠 $context_bar$git_branch_sep";
+pub const DEFAULT_FORMAT: &str = "🤖 $model | 💰 $cost | 📈 $session [$session_reset] | 📅 $weekly [$weekly_reset] | 🧠 $context_bar$git_branch_sep | 📁 $project";
 
 #[derive(Debug, Deserialize)]
 struct RawConfig {
@@ -90,6 +90,7 @@ mod tests {
             "$weekly_reset",
             "$context_bar",
             "$git_branch_sep",
+            "$project",
         ] {
             assert!(
                 c.format.contains(needle),
