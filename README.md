@@ -67,8 +67,10 @@ If the file is missing the baked-in default (equivalent to the `basic` template)
 ### Minimal example
 
 ```toml
-format = "🤖 $model | 💰 $cost | 🧠 $context_bar$git_branch_sep"
+format = "🤖 $model | 💰 $cost | 🧠 $context_bar( | 🌿 $git_branch)"
 ```
+
+The `(...)` wrapping around ` | 🌿 $git_branch` is a **conditional group**: if any `$module` inside renders empty, the entire group disappears — separator, emoji, and all. Outside a git repo you get just `🤖 $model | 💰 $cost | 🧠 $context_bar` with no awkward trailing ` | 🌿`. See [Conditional Groups](#conditional-groups) below.
 
 ### Multi-line example
 
@@ -85,26 +87,38 @@ The trailing `\` before the closing `"""` strips the final newline so you don't 
 
 Each placeholder is a Starship-style `$module_name` reference. Everything else in the `format` string is literal text (including emojis, separators, and newlines).
 
-| Placeholder       | Description                                       | Example                     |
-| ----------------- | ------------------------------------------------- | --------------------------- |
-| `$model`          | Current model display name                        | `Opus 4.6`                  |
-| `$cost`           | Session cost in USD                               | `$1.79`                     |
-| `$duration`       | Session duration                                  | `7m 5s`                     |
-| `$session`        | 5-hour utilization (`N/A` if missing)             | `17%`                       |
-| `$session_reset`  | Countdown to the 5-hour reset                     | `0h 31m`                    |
-| `$weekly`         | 7-day utilization (`N/A` if missing)              | `12%`                       |
-| `$weekly_reset`   | Weekly reset weekday + time                       | `Wed 9:00PM`                |
-| `$context`        | Context window usage percentage                   | `17%`                       |
-| `$context_bar`    | 10-cell █/░ bar + percent + used_k/total_k tokens | `█░░░░░░░░░ 17% (34k/200k)` |
-| `$tokens_in`      | Total input tokens (comma-separated)              | `45,000`                    |
-| `$tokens_out`     | Total output tokens (comma-separated)             | `3,200`                     |
-| `$cache`          | Cache hit rate + cache-read count                 | `84% (38,000)`              |
-| `$version`        | Claude Code version                               | `v2.0.76`                   |
-| `$project`        | Project directory basename                        | `claude-code-statusline`    |
-| `$git_branch`     | Raw branch name (empty outside a repo)            | `master`                    |
-| `$git_branch_sep` | ` \| 🌿 <branch>` (empty outside a repo)          | ` \| 🌿 master`             |
+| Placeholder      | Description                                       | Example                     |
+| ---------------- | ------------------------------------------------- | --------------------------- |
+| `$model`         | Current model display name                        | `Opus 4.6`                  |
+| `$cost`          | Session cost in USD                               | `$1.79`                     |
+| `$duration`      | Session duration                                  | `7m 5s`                     |
+| `$session`       | 5-hour utilization (`N/A` if missing)             | `17%`                       |
+| `$session_reset` | Countdown to the 5-hour reset                     | `0h 31m`                    |
+| `$weekly`        | 7-day utilization (`N/A` if missing)              | `12%`                       |
+| `$weekly_reset`  | Weekly reset weekday + time                       | `Wed 9:00PM`                |
+| `$context`       | Context window usage percentage                   | `17%`                       |
+| `$context_bar`   | 10-cell █/░ bar + percent + used_k/total_k tokens | `█░░░░░░░░░ 17% (34k/200k)` |
+| `$tokens_in`     | Total input tokens (comma-separated)              | `45,000`                    |
+| `$tokens_out`    | Total output tokens (comma-separated)             | `3,200`                     |
+| `$cache`         | Cache hit rate + cache-read count                 | `84% (38,000)`              |
+| `$version`       | Claude Code version                               | `v2.0.76`                   |
+| `$project`       | Project directory basename                        | `claude-code-statusline`    |
+| `$git_branch`    | Raw branch name (empty outside a repo)            | `master`                    |
 
-`$git_branch_sep` exists because it absorbs its own leading separator — so when you're not in a git repo nothing renders and you don't get an awkward trailing ` | 🌿` in the output.
+### Conditional Groups
+
+Anything you wrap in `(...)` is a **conditional group**: the group renders only if every `$module` inside it produces a non-empty value. If any one module is missing, the whole group — including its literal separators, emoji, and spaces — disappears.
+
+```toml
+format = "🧠 $context_bar( | 🌿 $git_branch) | 📁 $project"
+```
+
+- Inside a git repo → `🧠 █░░░░░░░░░ 17% | 🌿 master | 📁 my-project`
+- Outside a git repo → `🧠 █░░░░░░░░░ 17% | 📁 my-project` (no dangling ` | 🌿`)
+
+Groups can nest. An inner group's emptiness does **not** bubble up to its parent — each group decides independently. Unmatched `(` extends silently to end-of-string; a stray `)` is treated as literal text.
+
+For backward compatibility, the legacy `$git_branch_sep` placeholder is still recognized and expands to `( | 🌿 $git_branch)` at parse time. New configs should use the explicit group form.
 
 ## How It Works
 

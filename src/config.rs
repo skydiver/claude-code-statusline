@@ -17,7 +17,7 @@ use std::path::PathBuf;
 
 use serde::Deserialize;
 
-pub const DEFAULT_FORMAT: &str = "🤖 $model | 💰 $cost | 📈 $session [$session_reset] | 📅 $weekly [$weekly_reset] | 🧠 $context_bar$git_branch_sep | 📁 $project";
+pub const DEFAULT_FORMAT: &str = "🤖 $model | 💰 $cost | 📈 $session [$session_reset] | 📅 $weekly [$weekly_reset] | 🧠 $context_bar( | 🌿 $git_branch) | 📁 $project";
 
 #[derive(Debug, Deserialize)]
 struct RawConfig {
@@ -92,7 +92,7 @@ mod tests {
             "$weekly",
             "$weekly_reset",
             "$context_bar",
-            "$git_branch_sep",
+            "$git_branch",
             "$project",
         ] {
             assert!(

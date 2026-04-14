@@ -4,4 +4,4 @@
 # Copy this file to ~/.config/claude-code-statusline/config.toml
 # (or $XDG_CONFIG_HOME/claude-code-statusline/config.toml).
 
-format = "🤖 $model | 💰 $cost | 📈 $session [$session_reset] | 📅 $weekly [$weekly_reset] | 🧠 $context_bar$git_branch_sep | 📁 $project"
+format = "🤖 $model | 💰 $cost | 📈 $session [$session_reset] | 📅 $weekly [$weekly_reset] | 🧠 $context_bar( | 🌿 $git_branch) | 📁 $project"
