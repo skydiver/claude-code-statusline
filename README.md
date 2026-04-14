@@ -34,10 +34,10 @@ Clone and build:
 ```bash
 git clone https://github.com/skydiver/claude-code-statusline.git
 cd claude-code-statusline
-cargo build --release
+make
 ```
 
-The binary lands at `target/release/ccline` (~855K).
+`make` runs `cargo build --release` and stages the binary at `dist/ccline` (~855K). If you prefer Cargo directly, `cargo build --release` produces the same binary at `target/release/ccline`.
 
 ### Wire into Claude Code
 
@@ -47,7 +47,7 @@ Add the binary path to `~/.claude/settings.json`:
 {
   "statusLine": {
     "type": "command",
-    "command": "/absolute/path/to/ccline",
+    "command": "/absolute/path/to/dist/ccline",
     "padding": 0
   }
 }
@@ -114,6 +114,28 @@ Each placeholder is a Starship-style `$module_name` reference. Everything else i
 4. Dispatches each `$module` to its renderer and writes the concatenated result to stdout.
 
 Parse errors for either the JSON or the config file are logged to stderr. stdout always receives a valid line.
+
+## Development
+
+The Makefile wraps the common Cargo workflows:
+
+| Target       | What it does                                                                    |
+| ------------ | ------------------------------------------------------------------------------- |
+| `make`       | Alias for `make dist`                                                           |
+| `make dist`  | `cargo build --release`, copy the binary into `dist/ccline`, and print its size |
+| `make dev`   | `cargo run` — running without piped stdin prints a usage banner (see below)     |
+| `make test`  | `cargo test` — runs the full unit suite                                         |
+| `make clean` | `cargo clean` plus `rm -rf dist`                                                |
+
+### Running directly
+
+`ccline` expects the Claude Code session JSON on stdin. If you run it in an interactive terminal (e.g. `make dev` or `./dist/ccline`), it detects the TTY, prints a short usage banner, and exits cleanly instead of blocking on stdin forever.
+
+To smoke-test the render pipeline locally, pipe the bundled fixture:
+
+```bash
+cat tests/fixtures/sample_input.json | ./dist/ccline
+```
 
 ## Migrating from the Bash version
 
