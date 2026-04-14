@@ -47,8 +47,28 @@ fn parse_tokens(chars: &mut Peekable<Chars>, in_group: bool) -> Vec<Token> {
 
         if c == '(' {
             chars.next();
+            // A space typed right before `(` reads as "part of the
+            // conditional region" — so absorb trailing whitespace from the
+            // pending literal into the group. To keep old `$context_bar( |
+            // 🌿 ...)` source and new `$context_bar ( | 🌿 ...)` source
+            // rendering identically, we also strip leading whitespace from
+            // the group's first literal child so the two don't double up.
+            let absorbed = take_trailing_whitespace(&mut literal);
             flush_literal(&mut tokens, &mut literal);
-            let children = parse_tokens(chars, true);
+            let mut children = parse_tokens(chars, true);
+            if !absorbed.is_empty() {
+                match children.first_mut() {
+                    Some(Token::Literal(first)) => {
+                        let merged = format!("{}{}", absorbed, first.trim_start());
+                        if merged.is_empty() {
+                            children.remove(0);
+                        } else {
+                            *first = merged;
+                        }
+                    }
+                    _ => children.insert(0, Token::Literal(absorbed)),
+                }
+            }
             tokens.push(Token::Group(children));
             continue;
         }
@@ -77,6 +97,11 @@ fn flush_literal(tokens: &mut Vec<Token>, literal: &mut String) {
     if !literal.is_empty() {
         tokens.push(Token::Literal(std::mem::take(literal)));
     }
+}
+
+fn take_trailing_whitespace(literal: &mut String) -> String {
+    let trimmed_len = literal.trim_end().len();
+    literal.split_off(trimmed_len)
 }
 
 fn consume_ident(chars: &mut Peekable<Chars>) -> String {
@@ -237,12 +262,16 @@ mod tests {
 
     #[test]
     fn parses_nested_group() {
+        // The space between `$a` and `(` is absorbed into the inner group,
+        // so it disappears together with `$b` when the inner group is empty.
         assert_eq!(
             parse_format("($a ($b))"),
             vec![Token::Group(vec![
                 Token::Module("a".into()),
-                Token::Literal(" ".into()),
-                Token::Group(vec![Token::Module("b".into())]),
+                Token::Group(vec![
+                    Token::Literal(" ".into()),
+                    Token::Module("b".into()),
+                ]),
             ])]
         );
     }
@@ -358,6 +387,66 @@ mod tests {
         // Inner vanishes; outer still renders its non-empty parts.
         let out = render("($model( | $version))", &input_with_model());
         assert_eq!(out, "Opus 4.6");
+    }
+
+    #[test]
+    fn space_before_group_is_absorbed_into_group() {
+        // Whitespace immediately before `(` belongs to the conditional
+        // region — so `a (X)` and `a(X)` parse to equivalent shapes and
+        // `a (X)` suppresses the space along with the group when X is empty.
+        assert_eq!(
+            parse_format("a ($b)"),
+            vec![
+                Token::Literal("a".into()),
+                Token::Group(vec![
+                    Token::Literal(" ".into()),
+                    Token::Module("b".into()),
+                ]),
+            ]
+        );
+    }
+
+    #[test]
+    fn absorbed_space_replaces_leading_space_inside_group() {
+        // Both forms must render identically: the outer space is absorbed
+        // and the inner leading space is stripped so we don't double up.
+        assert_eq!(
+            parse_format("a ( | $b)"),
+            parse_format("a( | $b)"),
+        );
+    }
+
+    #[test]
+    fn absorbed_group_with_only_whitespace_inner_literal_drops_it() {
+        // Inner is just `(  )` whitespace → trimming leaves nothing, so we
+        // remove the emptied literal rather than keep an empty token.
+        assert_eq!(
+            parse_format("a (  $b)"),
+            vec![
+                Token::Literal("a".into()),
+                Token::Group(vec![
+                    Token::Literal(" ".into()),
+                    Token::Module("b".into()),
+                ]),
+            ]
+        );
+    }
+
+    #[test]
+    fn absorbed_space_suppressed_when_group_empty() {
+        // `$version` is None → the whole group (including absorbed space)
+        // vanishes, leaving no dangling separator.
+        let out = render("x ( | $version)y", &Input::default());
+        assert_eq!(out, "xy");
+    }
+
+    #[test]
+    fn new_and_old_group_syntax_render_identically() {
+        let input = input_with_model();
+        assert_eq!(
+            render("$model ( | $model)", &input),
+            render("$model( | $model)", &input),
+        );
     }
 
     #[test]

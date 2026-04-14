@@ -67,7 +67,7 @@ If the file is missing the baked-in default (equivalent to the `basic` template)
 ### Minimal example
 
 ```toml
-format = "🤖 $model | 💰 $cost | 🧠 $context_bar( | 🌿 $git_branch)"
+format = "🤖 $model | 💰 $cost | 🧠 $context_bar ( | 🌿 $git_branch)"
 ```
 
 The `(...)` wrapping around ` | 🌿 $git_branch` is a **conditional group**: if any `$module` inside renders empty, the entire group disappears — separator, emoji, and all. Outside a git repo you get just `🤖 $model | 💰 $cost | 🧠 $context_bar` with no awkward trailing ` | 🌿`. See [Conditional Groups](#conditional-groups) below.
@@ -110,11 +110,13 @@ Each placeholder is a Starship-style `$module_name` reference. Everything else i
 Anything you wrap in `(...)` is a **conditional group**: the group renders only if every `$module` inside it produces a non-empty value. If any one module is missing, the whole group — including its literal separators, emoji, and spaces — disappears.
 
 ```toml
-format = "🧠 $context_bar( | 🌿 $git_branch) | 📁 $project"
+format = "🧠 $context_bar ( | 🌿 $git_branch) | 📁 $project"
 ```
 
 - Inside a git repo → `🧠 █░░░░░░░░░ 17% | 🌿 master | 📁 my-project`
 - Outside a git repo → `🧠 █░░░░░░░░░ 17% | 📁 my-project` (no dangling ` | 🌿`)
+
+Any whitespace typed immediately before `(` is absorbed into the group, so `$context_bar ( | 🌿 $git_branch)` and `$context_bar( | 🌿 $git_branch)` render identically — but the former reads better and still suppresses the leading space along with the group when the branch is missing.
 
 Groups can nest. An inner group's emptiness does **not** bubble up to its parent — each group decides independently. Unmatched `(` extends silently to end-of-string; a stray `)` is treated as literal text.
 
