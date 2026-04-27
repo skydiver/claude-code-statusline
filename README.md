@@ -67,6 +67,16 @@ If the file is missing the baked-in default (equivalent to the `basic` template)
 
 `CCLINE_CONFIG` is handy for keeping multiple layouts side-by-side (e.g. one for work, one for personal) and pointing `ccline` at whichever one you want via your shell environment or launcher config.
 
+### Mirroring the input to disk
+
+Set `CCLINE_INPUT_DUMP` to a writable path and `ccline` will save a pretty-printed JSON snapshot of the stdin payload to that path on every render. Useful when another tool (a menubar app, a dashboard, a watcher script) wants the current Claude Code session state without re-implementing a statusline reader.
+
+```bash
+export CCLINE_INPUT_DUMP="$HOME/.cache/ccline/input.json"
+```
+
+Writes are atomic — the JSON goes to `<path>.tmp` first and is then renamed onto the target. A reader either sees the previous snapshot or the new one, never a half-written file. The dump preserves every field Claude Code sent (including ones `ccline` itself doesn't render), so it stays forward-compatible with new payload fields. An empty value is treated as unset; a write failure is logged to stderr but never breaks the statusline.
+
 ### Minimal example
 
 ```toml

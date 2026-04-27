@@ -1,4 +1,5 @@
 mod config;
+mod dump;
 mod input;
 mod modules;
 mod render;
@@ -28,10 +29,24 @@ fn main() -> ExitCode {
         return ExitCode::SUCCESS;
     }
 
-    let input: Input = match serde_json::from_str(&raw) {
-        Ok(input) => input,
+    // Parse to a generic Value first so the optional dump file is a faithful
+    // copy of what Claude Code sent — including any fields the typed `Input`
+    // struct does not yet model. Then convert to the typed view for rendering.
+    let value: serde_json::Value = match serde_json::from_str(&raw) {
+        Ok(value) => value,
         Err(e) => {
             eprintln!("ccline: failed to parse stdin JSON: {e}");
+            println!("ccline");
+            return ExitCode::SUCCESS;
+        }
+    };
+
+    dump::try_dump(&value);
+
+    let input: Input = match serde_json::from_value(value) {
+        Ok(input) => input,
+        Err(e) => {
+            eprintln!("ccline: failed to interpret stdin JSON: {e}");
             println!("ccline");
             return ExitCode::SUCCESS;
         }
