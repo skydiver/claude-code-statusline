@@ -75,9 +75,15 @@ fn print_usage() {
     println!("    }}");
     println!("  }}");
     println!();
-    println!("Config file (optional, TOML):");
+    println!("Config file (optional, TOML, in precedence order):");
+    println!("  $CCLINE_CONFIG (if set, takes priority over the paths below)");
     println!("  $XDG_CONFIG_HOME/claude-code-statusline/config.toml");
     println!("  ~/.config/claude-code-statusline/config.toml");
+    println!();
+    println!("Environment variables:");
+    println!("  CCLINE_CONFIG      Override the config file path (see above).");
+    println!("  CCLINE_INPUT_DUMP  Write a pretty-printed JSON snapshot of the");
+    println!("                     stdin payload to this path on every render.");
     println!();
     println!("Local test with the bundled fixture:");
     println!("  cat tests/fixtures/sample_input.json | ccline");
