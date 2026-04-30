@@ -2,8 +2,6 @@
 
 A small Rust binary (`ccline`) that renders a customizable statusline for [Claude Code](https://docs.anthropic.com/en/docs/claude-code). Reads the session JSON from stdin, formats it using a Starship-style `format` string, and writes the result to stdout.
 
-This is the v2 rewrite of the original shell script. The previous Bash implementation lives in the git history if you need it.
-
 ## Output Examples
 
 **Basic template** (single line — the baked-in default):
@@ -139,8 +137,6 @@ format = "$context_bar( | 🌿 $git_branch)"    # legacy, no outer space
 
 Groups can nest. An inner group's emptiness does **not** bubble up to its parent — each group decides independently. Unmatched `(` extends silently to end-of-string; a stray `)` is treated as literal text.
 
-For backward compatibility, the legacy `$git_branch_sep` placeholder is still recognized and expands to `( | 🌿 $git_branch)` at parse time. New configs should use the explicit group form.
-
 ## How It Works
 
 1. Reads the Claude Code session JSON from stdin into a typed `Input` struct (all fields optional for forward compat).
@@ -171,19 +167,6 @@ To smoke-test the render pipeline locally, pipe the bundled fixture:
 ```bash
 cat tests/fixtures/sample_input.json | ./dist/ccline
 ```
-
-## Migrating from the Bash version
-
-| v1 (shell)                           | v2 (`ccline`)                                   |
-| ------------------------------------ | ----------------------------------------------- |
-| `statusline.sh` + `jq` at runtime    | Single self-contained binary, zero runtime deps |
-| macOS only (BSD `date` flags)        | macOS, Linux, and Windows                       |
-| `STATUSLINE_TEMPLATE` env var        | `format` field in TOML config                   |
-| Bash template arrays with `---`      | TOML multi-line string with literal `\n`        |
-| `{placeholder}` syntax               | `$module` syntax (Starship-style)               |
-| `{git_branch_sep}` (baked separator) | `$git_branch_sep` (same behavior, same name)    |
-
-The v1 shell script has been removed; check out an earlier tag if you need to roll back.
 
 ## License
 
