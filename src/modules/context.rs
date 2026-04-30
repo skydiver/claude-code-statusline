@@ -9,12 +9,36 @@
 //! then the rounded percent, then used/total tokens in thousands. The
 //! `tokens_used_k` figure is derived from `pct * size / 100 / 1000` so it
 //! stays consistent with the bar fill rather than the raw token counts.
+//!
+//! Both placeholders are wrapped in ANSI color when the rounded percent
+//! crosses pressure thresholds: 75%+ → red, 65–74% → yellow, below → default.
 
 use crate::input::Input;
 
 const BAR_WIDTH: u64 = 10;
 const FILLED: char = '█';
 const EMPTY: char = '░';
+
+const ANSI_RED: &str = "\x1b[31m";
+const ANSI_YELLOW: &str = "\x1b[33m";
+const ANSI_RESET: &str = "\x1b[0m";
+
+fn color_for(pct: u64) -> Option<&'static str> {
+    if pct >= 75 {
+        Some(ANSI_RED)
+    } else if pct >= 65 {
+        Some(ANSI_YELLOW)
+    } else {
+        None
+    }
+}
+
+fn colorize(pct: u64, body: String) -> String {
+    match color_for(pct) {
+        Some(code) => format!("{code}{body}{ANSI_RESET}"),
+        None => body,
+    }
+}
 
 fn rounded_percent(input: &Input) -> u64 {
     input
@@ -34,7 +58,8 @@ fn context_size(input: &Input) -> u64 {
 }
 
 pub fn render_percent(input: &Input) -> String {
-    format!("{}%", rounded_percent(input))
+    let pct = rounded_percent(input);
+    colorize(pct, format!("{pct}%"))
 }
 
 pub fn render_bar(input: &Input) -> String {
@@ -50,7 +75,10 @@ pub fn render_bar(input: &Input) -> String {
     let tokens_used_k = pct * size / 100 / 1000;
     let tokens_total_k = size / 1000;
 
-    format!("{bar} {pct}% ({tokens_used_k}k/{tokens_total_k}k)")
+    colorize(
+        pct,
+        format!("{bar} {pct}% ({tokens_used_k}k/{tokens_total_k}k)"),
+    )
 }
 
 #[cfg(test)]
@@ -97,7 +125,10 @@ mod tests {
     #[test]
     fn bar_renders_full_at_hundred_percent() {
         let input = with_context(100.0, 200_000);
-        assert_eq!(render_bar(&input), "██████████ 100% (200k/200k)");
+        assert_eq!(
+            render_bar(&input),
+            "\x1b[31m██████████ 100% (200k/200k)\x1b[0m"
+        );
     }
 
     #[test]
@@ -105,11 +136,74 @@ mod tests {
         // Defensive: if the server ever reports >100, the bar should stay 10 cells.
         let input = with_context(150.0, 200_000);
         let out = render_bar(&input);
-        assert!(out.starts_with("██████████ 150%"));
+        assert!(out.starts_with("\x1b[31m██████████ 150%"));
+        assert!(out.ends_with("\x1b[0m"));
     }
 
     #[test]
     fn bar_falls_back_to_zero_when_missing() {
         assert_eq!(render_bar(&Input::default()), "░░░░░░░░░░ 0% (0k/0k)");
+    }
+
+    #[test]
+    fn percent_uncolored_below_yellow_threshold() {
+        // 64% is the last value before the yellow band kicks in.
+        assert_eq!(render_percent(&with_context(64.0, 200_000)), "64%");
+    }
+
+    #[test]
+    fn percent_yellow_at_lower_bound() {
+        assert_eq!(
+            render_percent(&with_context(65.0, 200_000)),
+            "\x1b[33m65%\x1b[0m"
+        );
+    }
+
+    #[test]
+    fn percent_yellow_at_upper_bound() {
+        assert_eq!(
+            render_percent(&with_context(74.0, 200_000)),
+            "\x1b[33m74%\x1b[0m"
+        );
+    }
+
+    #[test]
+    fn percent_red_at_threshold() {
+        assert_eq!(
+            render_percent(&with_context(75.0, 200_000)),
+            "\x1b[31m75%\x1b[0m"
+        );
+    }
+
+    #[test]
+    fn percent_color_follows_rounded_value() {
+        // 64.6 rounds to 65 → yellow; 74.5 rounds to 75 → red. The threshold
+        // gate runs on the rounded percent, so display and color stay in sync.
+        assert_eq!(
+            render_percent(&with_context(64.6, 200_000)),
+            "\x1b[33m65%\x1b[0m"
+        );
+        assert_eq!(
+            render_percent(&with_context(74.5, 200_000)),
+            "\x1b[31m75%\x1b[0m"
+        );
+    }
+
+    #[test]
+    fn bar_yellow_at_lower_bound() {
+        let input = with_context(65.0, 200_000);
+        assert_eq!(
+            render_bar(&input),
+            "\x1b[33m██████░░░░ 65% (130k/200k)\x1b[0m"
+        );
+    }
+
+    #[test]
+    fn bar_red_at_threshold() {
+        let input = with_context(75.0, 200_000);
+        assert_eq!(
+            render_bar(&input),
+            "\x1b[31m███████░░░ 75% (150k/200k)\x1b[0m"
+        );
     }
 }
