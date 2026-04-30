@@ -183,7 +183,7 @@ cat tests/fixtures/sample_input.json | ./dist/ccline
 | `{placeholder}` syntax               | `$module` syntax (Starship-style)               |
 | `{git_branch_sep}` (baked separator) | `$git_branch_sep` (same behavior, same name)    |
 
-The v1 shell script remains in git history if you need to roll back.
+The v1 shell script has been removed; check out an earlier tag if you need to roll back.
 
 ## License
 
