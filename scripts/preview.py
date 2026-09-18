@@ -70,7 +70,7 @@ def session(used, minutes_left=42):
     }
 
 
-def context(used, size=200_000):
+def context(used, size=1_000_000):
     return {"context_window": {"used_percentage": used, "context_window_size": size}}
 
 

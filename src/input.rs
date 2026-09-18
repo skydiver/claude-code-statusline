@@ -76,36 +76,36 @@ mod tests {
 
         assert_eq!(
             input.model.as_ref().and_then(|m| m.display_name.as_deref()),
-            Some("Opus 4.6")
+            Some("Opus 5 (1M context)")
         );
-        assert_eq!(input.version.as_deref(), Some("2.0.76"));
+        assert_eq!(input.version.as_deref(), Some("2.1.276"));
         assert_eq!(
             input.cost.as_ref().and_then(|c| c.total_cost_usd),
-            Some(1.79)
+            Some(6.62)
         );
         assert_eq!(
             input.cost.as_ref().and_then(|c| c.total_duration_ms),
-            Some(425000)
+            Some(1611000)
         );
 
         let ctx = input.context_window.as_ref().expect("context_window set");
-        assert_eq!(ctx.used_percentage, Some(17.3));
-        assert_eq!(ctx.context_window_size, Some(200000));
+        assert_eq!(ctx.used_percentage, Some(13.0));
+        assert_eq!(ctx.context_window_size, Some(1000000));
 
         let five_hour = input
             .rate_limits
             .as_ref()
             .and_then(|r| r.five_hour.as_ref())
             .expect("five_hour set");
-        assert_eq!(five_hour.used_percentage, Some(17.5));
-        assert_eq!(five_hour.resets_at, Some(1744582800));
+        assert_eq!(five_hour.used_percentage, Some(17.0));
+        assert_eq!(five_hour.resets_at, Some(1789748460));
 
         assert_eq!(
             input
                 .workspace
                 .as_ref()
                 .and_then(|w| w.project_dir.as_deref()),
-            Some("/Users/example/projects/claude-code-statusline")
+            Some("/Users/example/projects/my-project")
         );
     }
 

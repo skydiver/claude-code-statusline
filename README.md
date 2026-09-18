@@ -7,14 +7,14 @@ A small Rust binary (`ccline`) that renders a customizable statusline for [Claud
 **Basic template** (single line — the baked-in default):
 
 ```
-🤖 Opus 4.6 | 💰 $1.79 | 📈 17% [0h 31m] | 📅 12% [Wed 9:00PM] | 🧠 █░░░░░░░░░ 17% (34k/200k) | 🌿 main | 📁 my-project
+🤖 Opus 5 (1M context) | 💰 $6.62 | 📈 17% [4h 21m] | 📅 22% [Tue 7:00PM] | 🧠 █░░░░░░░░░ 13% (130k/1000k) | 🌿 main | 📁 my-project
 ```
 
 **Extended template** (two lines):
 
 ```
-🤖 Opus 4.6 | 💰 $1.79 | ⏱️ 7m 5s | 📈 17% [0h 31m] | 📅 12% [Wed 9:00PM] | 🧠 Context: 17%
-🚀 Claude Code v2.0.76 | ⬇️ Tokens In: 45,000 | ⬆️ Tokens Out: 3,200 | ♻️ Cache: 84% (38,000) | 🌿 main | 📁 my-project
+🤖 Opus 5 (1M context) | 💰 $6.62 | ⏱️ 26m 51s | 📈 17% [4h 21m] | 📅 22% [Tue 7:00PM] | 🧠 Context: 13%
+🚀 Claude Code v2.1.276 | ⬇️ Tokens In: 128,000 | ⬆️ Tokens Out: 9,400 | ♻️ Cache: 85% (118,000) | 🌿 main | 📁 my-project
 ```
 
 ## Requirements
@@ -32,10 +32,10 @@ Clone and build:
 ```bash
 git clone https://github.com/skydiver/claude-code-statusline.git
 cd claude-code-statusline
-make
+make dist
 ```
 
-`make` runs `cargo build --release` and stages the binary at `dist/ccline` (~1.2 MB). If you prefer Cargo directly, `cargo build --release` produces the same binary at `target/release/ccline`.
+`make dist` runs `cargo build --release` and stages the binary at `dist/ccline` (~1.2 MB). Running `make` on its own lists the available targets instead of building. If you prefer Cargo directly, `cargo build --release` produces the same binary at `target/release/ccline`.
 
 ### Wire into Claude Code
 
@@ -98,23 +98,23 @@ The trailing `\` before the closing `"""` strips the final newline so you don't 
 
 Each placeholder is a Starship-style `$module_name` reference. Everything else in the `format` string is literal text (including emojis, separators, and newlines).
 
-| Placeholder      | Description                                       | Example                     |
-| ---------------- | ------------------------------------------------- | --------------------------- |
-| `$model`         | Current model display name                        | `Opus 4.6`                  |
-| `$cost`          | Session cost in USD                               | `$1.79`                     |
-| `$duration`      | Session duration                                  | `7m 5s`                     |
-| `$session`       | 5-hour utilization, colored by usage (`N/A` if missing) | `17%`                 |
-| `$session_reset` | Countdown to the 5-hour reset                     | `0h 31m`                    |
-| `$weekly`        | 7-day utilization, colored by pace (`N/A` if missing) | `12%`                   |
-| `$weekly_reset`  | Weekly reset weekday + time                       | `Wed 9:00PM`                |
-| `$context`       | Context window usage percentage                   | `17%`                       |
-| `$context_bar`   | 10-cell █/░ bar + percent + used_k/total_k tokens | `█░░░░░░░░░ 17% (34k/200k)` |
-| `$tokens_in`     | Total input tokens (comma-separated)              | `45,000`                    |
-| `$tokens_out`    | Total output tokens (comma-separated)             | `3,200`                     |
-| `$cache`         | Cache hit rate + cache-read count                 | `84% (38,000)`              |
-| `$version`       | Claude Code version                               | `v2.0.76`                   |
-| `$project`       | Project directory basename                        | `claude-code-statusline`    |
-| `$git_branch`    | Raw branch name (empty outside a repo)            | `master`                    |
+| Placeholder      | Description                                             | Example                       |
+| ---------------- | ------------------------------------------------------- | ----------------------------- |
+| `$model`         | Current model display name                              | `Opus 5 (1M context)`         |
+| `$cost`          | Session cost in USD                                     | `$6.62`                       |
+| `$duration`      | Session duration                                        | `26m 51s`                     |
+| `$session`       | 5-hour utilization, colored by usage (`N/A` if missing) | `17%`                         |
+| `$session_reset` | Countdown to the 5-hour reset                           | `4h 21m`                      |
+| `$weekly`        | 7-day utilization, colored by pace (`N/A` if missing)   | `22%`                         |
+| `$weekly_reset`  | Weekly reset weekday + time                             | `Tue 7:00PM`                  |
+| `$context`       | Context window usage percentage                         | `13%`                         |
+| `$context_bar`   | 10-cell █/░ bar + percent + used_k/total_k tokens       | `█░░░░░░░░░ 13% (130k/1000k)` |
+| `$tokens_in`     | Total input tokens (comma-separated)                    | `128,000`                     |
+| `$tokens_out`    | Total output tokens (comma-separated)                   | `9,400`                       |
+| `$cache`         | Cache hit rate + cache-read count                       | `85% (118,000)`               |
+| `$version`       | Claude Code version                                     | `v2.1.276`                    |
+| `$project`       | Project directory basename                              | `my-project`                  |
+| `$git_branch`    | Raw branch name (empty outside a repo)                  | `main`                        |
 
 ### Colors
 
@@ -241,6 +241,8 @@ To smoke-test the render pipeline locally, pipe the bundled fixture:
 ```bash
 cat tests/fixtures/sample_input.json | ./dist/ccline
 ```
+
+The fixture carries fixed timestamps, so `$session_reset` counts down against your current clock and reads `0h 0m` once that moment has passed. Everything else renders exactly as shown in [Output Examples](#output-examples), give or take your own git branch.
 
 ## License
 
