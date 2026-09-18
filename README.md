@@ -190,11 +190,26 @@ Parse errors for either the JSON or the config file are logged to stderr. stdout
 
 ## Development
 
-The Makefile wraps the common Cargo workflows:
+The Makefile wraps the common Cargo workflows. Running `make` with no target lists them all:
+
+```
+ccline — available targets:
+
+  all      Alias for `make dist`
+  clean    Remove build artifacts (cargo clean plus dist/)
+  dev      Run via cargo (prints a usage banner without piped stdin)
+  dist     Build the release binary and copy it into dist/
+  help     List the available targets
+  preview  Render the statusline across a scenario matrix, in real color
+  test     Run the full unit suite
+```
+
+That listing is generated from the `##` comments on the targets themselves, so it can't drift out of sync.
 
 | Target       | What it does                                                                    |
 | ------------ | ------------------------------------------------------------------------------- |
-| `make`       | Alias for `make dist`                                                           |
+| `make`       | Alias for `make help` — lists the targets without building                      |
+| `make all`   | Alias for `make dist`                                                           |
 | `make dist`  | `cargo build --release`, copy the binary into `dist/ccline`, and print its size |
 | `make dev`   | `cargo run` — running without piped stdin prints a usage banner (see below)     |
 | `make test`  | `cargo test` — runs the full unit suite                                         |
