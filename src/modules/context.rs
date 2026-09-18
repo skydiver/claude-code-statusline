@@ -14,14 +14,11 @@
 //! crosses pressure thresholds: 75%+ → red, 65–74% → yellow, below → default.
 
 use crate::input::Input;
+use crate::style::{ANSI_RED, ANSI_YELLOW, paint};
 
 const BAR_WIDTH: u64 = 10;
 const FILLED: char = '█';
 const EMPTY: char = '░';
-
-const ANSI_RED: &str = "\x1b[31m";
-const ANSI_YELLOW: &str = "\x1b[33m";
-const ANSI_RESET: &str = "\x1b[0m";
 
 fn color_for(pct: u64) -> Option<&'static str> {
     if pct >= 75 {
@@ -34,10 +31,7 @@ fn color_for(pct: u64) -> Option<&'static str> {
 }
 
 fn colorize(pct: u64, body: String) -> String {
-    match color_for(pct) {
-        Some(code) => format!("{code}{body}{ANSI_RESET}"),
-        None => body,
-    }
+    paint(color_for(pct), body)
 }
 
 fn rounded_percent(input: &Input) -> u64 {
