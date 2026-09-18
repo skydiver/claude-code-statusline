@@ -105,7 +105,7 @@ Each placeholder is a Starship-style `$module_name` reference. Everything else i
 | `$duration`      | Session duration                                  | `7m 5s`                     |
 | `$session`       | 5-hour utilization (`N/A` if missing)             | `17%`                       |
 | `$session_reset` | Countdown to the 5-hour reset                     | `0h 31m`                    |
-| `$weekly`        | 7-day utilization (`N/A` if missing)              | `12%`                       |
+| `$weekly`        | 7-day utilization, colored by pace (`N/A` if missing) | `12%`                   |
 | `$weekly_reset`  | Weekly reset weekday + time                       | `Wed 9:00PM`                |
 | `$context`       | Context window usage percentage                   | `17%`                       |
 | `$context_bar`   | 10-cell █/░ bar + percent + used_k/total_k tokens | `█░░░░░░░░░ 17% (34k/200k)` |
@@ -115,6 +115,38 @@ Each placeholder is a Starship-style `$module_name` reference. Everything else i
 | `$version`       | Claude Code version                               | `v2.0.76`                   |
 | `$project`       | Project directory basename                        | `claude-code-statusline`    |
 | `$git_branch`    | Raw branch name (empty outside a repo)            | `master`                    |
+
+### Colors
+
+Three placeholders wrap themselves in ANSI color when they cross a threshold. Everything else renders plain, so the `format` string stays in charge of the rest of the styling.
+
+`$context` and `$context_bar` color on **absolute context pressure**:
+
+| Context used | Color   |
+| ------------ | ------- |
+| 0–64%        | default |
+| 65–74%       | yellow  |
+| 75%+         | red     |
+
+`$weekly` colors on **burn pace** instead, because a raw weekly percentage says nothing on its own — 40% is comfortable on day 5 and alarming on day 1. Spending the full allowance evenly across the seven days works out to 14.29%/day, so the budget at any moment is simply the share of the window already elapsed:
+
+```
+budget = elapsed_fraction_of_the_7_day_window × 100
+pace   = weekly_used_percentage ÷ budget
+```
+
+| Pace           | Color   | Meaning                                      |
+| -------------- | ------- | -------------------------------------------- |
+| below 1.0x     | default | on track to reach the reset with room to spare |
+| 1.0x – 1.49x   | yellow  | on track to run out before the reset          |
+| 1.5x and above | red     | on track to run out well before the reset     |
+
+Two guards keep that ratio honest:
+
+- **Below 5% used, never colored.** Minutes into a fresh window the elapsed fraction is near zero, so any usage at all computes to a wild pace. That's arithmetic, not a warning.
+- **At 90% used, always red.** Late in the window a near-exhausted allowance can still be technically "under budget" — 92% on day 6.5 is a 0.99x pace and one session from the wall. This band needs no reset timestamp, so it warns even on an older payload that omits one.
+
+When `resets_at` is missing or the window start lands in the future (clock skew), the pace can't be computed and `$weekly` renders plain.
 
 ### Conditional Groups
 

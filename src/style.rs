@@ -1,7 +1,8 @@
 //! Shared ANSI styling helpers (Phase 3 target: a starship-style style parser).
 //!
-//! Modules that color their output by threshold share these codes and the
-//! `paint` wrapper, so a body is never emitted with a dangling reset.
+//! Modules that color their output by threshold — `$context`/`$context_bar`
+//! by context pressure, `$weekly` by burn pace — share these codes and the
+//! `paint` wrapper so a body is never emitted with a dangling reset.
 
 pub const ANSI_RED: &str = "\x1b[31m";
 pub const ANSI_YELLOW: &str = "\x1b[33m";
