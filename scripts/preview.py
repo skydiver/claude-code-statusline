@@ -41,6 +41,7 @@ BOLD, DIM, RESET = "\x1b[1m", "\x1b[2m", "\x1b[0m"
 
 WEEKLY_FORMAT = "📅 $weekly [$weekly_reset]"
 CONTEXT_FORMAT = "🧠 $context_bar"
+SESSION_FORMAT = "📈 $session [$session_reset]"
 FULL_FORMAT = "🤖 $model | 📈 $session [$session_reset] | 📅 $weekly [$weekly_reset] | 🧠 $context"
 
 
@@ -56,6 +57,17 @@ def weekly(used=None, reset=None):
     if reset is not None:
         window["resets_at"] = reset
     return {"rate_limits": {"seven_day": window}}
+
+
+def session(used, minutes_left=42):
+    return {
+        "rate_limits": {
+            "five_hour": {
+                "used_percentage": used,
+                "resets_at": NOW + minutes_left * 60,
+            }
+        }
+    }
 
 
 def context(used, size=200_000):
@@ -132,6 +144,10 @@ def main():
     row("clock skew", render(weekly(50, NOW + WEEK + 3600), WEEKLY_FORMAT))
     row("stale (reset passed)", render(weekly(60, NOW - 3600), WEEKLY_FORMAT))
     row("no used_percentage", render(weekly(reset=resets_at(1)), WEEKLY_FORMAT))
+
+    section("SESSION PRESSURE  (absolute thresholds, not pace)")
+    for used in [17, 64, 65, 84, 85, 98]:
+        row(f"{used}%", render(session(used), SESSION_FORMAT))
 
     section("CONTEXT PRESSURE  (absolute thresholds)")
     for used in [17, 64, 65, 74, 75, 100]:

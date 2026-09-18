@@ -10,6 +10,10 @@
 //! - `$weekly_reset`: localized date formatted in the system timezone via
 //!   `jiff` (`Mon 3:00PM`). No subprocess, no platform-specific `date` flags.
 //!
+//! `$session` is wrapped in ANSI color by absolute usage: a five-hour window is
+//! meant to be spent, so burning it near-linearly is ordinary work rather than
+//! a warning, and only proximity to the cutoff is worth flagging.
+//!
 //! `$weekly` is additionally wrapped in ANSI color by *burn pace* rather than
 //! by an absolute threshold: 100% of the allowance spread evenly over seven
 //! days is 14.29%/day, so the linear budget at any instant is the fraction of
@@ -32,6 +36,11 @@ const WEEKLY_FMT: &str = "%a %-I:%M%p";
 /// so the window start is derived by subtracting this.
 const WEEK_SECS: i64 = 7 * 24 * 60 * 60;
 
+/// Absolute usage at which `$session` changes band. Deliberately not pace-based
+/// — see the module docs.
+const SESSION_YELLOW_PCT: i64 = 65;
+const SESSION_RED_PCT: i64 = 85;
+
 /// Burn-rate multiples of the linear budget at which each band starts.
 const PACE_YELLOW: f64 = 1.0;
 const PACE_RED: f64 = 1.5;
@@ -52,13 +61,6 @@ fn five_hour(input: &Input) -> Option<&RateLimitWindow> {
 
 fn seven_day(input: &Input) -> Option<&RateLimitWindow> {
     input.rate_limits.as_ref().and_then(|r| r.seven_day.as_ref())
-}
-
-fn percent_or_na(window: Option<&RateLimitWindow>) -> String {
-    window
-        .and_then(|w| w.used_percentage)
-        .map(|p| format!("{}%", p.round() as i64))
-        .unwrap_or_else(|| NA.to_string())
 }
 
 fn countdown(resets_at: i64, now: i64) -> String {
@@ -86,7 +88,23 @@ fn format_weekly_date_in_tz(epoch: i64, tz: TimeZone) -> Option<String> {
 }
 
 pub fn render_session(input: &Input) -> String {
-    percent_or_na(five_hour(input))
+    let Some(used) = five_hour(input).and_then(|w| w.used_percentage) else {
+        return NA.to_string();
+    };
+    let rounded = used.round() as i64;
+    paint(session_color(rounded), format!("{rounded}%"))
+}
+
+/// Gated on the *displayed* (`rounded`) value so the number and its color can
+/// never disagree — the same rule `$context` and `$weekly` follow.
+fn session_color(rounded: i64) -> Option<&'static str> {
+    if rounded >= SESSION_RED_PCT {
+        Some(ANSI_RED)
+    } else if rounded >= SESSION_YELLOW_PCT {
+        Some(ANSI_YELLOW)
+    } else {
+        None
+    }
 }
 
 pub fn render_weekly(input: &Input) -> String {
@@ -190,6 +208,48 @@ mod tests {
     #[test]
     fn session_falls_back_to_na_when_missing() {
         assert_eq!(render_session(&Input::default()), "N/A");
+    }
+
+    // --- $session pressure coloring -------------------------------------
+    //
+    // Absolute thresholds, not pace: a 5-hour window is meant to be spent, so
+    // near-linear burn is ordinary work. Only proximity to the cutoff matters.
+
+    fn session_at(used: f64) -> Input {
+        with_windows(Some((used, 0)), None)
+    }
+
+    #[test]
+    fn session_uncolored_below_yellow_threshold() {
+        assert_eq!(render_session(&session_at(64.0)), "64%");
+    }
+
+    #[test]
+    fn session_yellow_at_lower_bound() {
+        assert_eq!(render_session(&session_at(65.0)), "\x1b[33m65%\x1b[0m");
+    }
+
+    #[test]
+    fn session_yellow_at_upper_bound() {
+        assert_eq!(render_session(&session_at(84.0)), "\x1b[33m84%\x1b[0m");
+    }
+
+    #[test]
+    fn session_red_at_threshold() {
+        assert_eq!(render_session(&session_at(85.0)), "\x1b[31m85%\x1b[0m");
+    }
+
+    #[test]
+    fn session_color_follows_rounded_value() {
+        // Same rule as $context and $weekly: the band is gated on the
+        // displayed value, so the number and its color never disagree.
+        assert_eq!(render_session(&session_at(64.6)), "\x1b[33m65%\x1b[0m");
+        assert_eq!(render_session(&session_at(84.5)), "\x1b[31m85%\x1b[0m");
+    }
+
+    #[test]
+    fn session_uncolored_at_zero() {
+        assert_eq!(render_session(&session_at(0.0)), "0%");
     }
 
     #[test]

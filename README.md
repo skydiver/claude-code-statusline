@@ -103,7 +103,7 @@ Each placeholder is a Starship-style `$module_name` reference. Everything else i
 | `$model`         | Current model display name                        | `Opus 4.6`                  |
 | `$cost`          | Session cost in USD                               | `$1.79`                     |
 | `$duration`      | Session duration                                  | `7m 5s`                     |
-| `$session`       | 5-hour utilization (`N/A` if missing)             | `17%`                       |
+| `$session`       | 5-hour utilization, colored by usage (`N/A` if missing) | `17%`                 |
 | `$session_reset` | Countdown to the 5-hour reset                     | `0h 31m`                    |
 | `$weekly`        | 7-day utilization, colored by pace (`N/A` if missing) | `12%`                   |
 | `$weekly_reset`  | Weekly reset weekday + time                       | `Wed 9:00PM`                |
@@ -118,7 +118,7 @@ Each placeholder is a Starship-style `$module_name` reference. Everything else i
 
 ### Colors
 
-Three placeholders wrap themselves in ANSI color when they cross a threshold. Everything else renders plain, so the `format` string stays in charge of the rest of the styling.
+Four placeholders wrap themselves in ANSI color when they cross a threshold. Everything else renders plain, so the `format` string stays in charge of the rest of the styling.
 
 `$context` and `$context_bar` color on **absolute context pressure**:
 
@@ -127,6 +127,16 @@ Three placeholders wrap themselves in ANSI color when they cross a threshold. Ev
 | 0–64%        | default |
 | 65–74%       | yellow  |
 | 75%+         | red     |
+
+`$session` also colors on absolute usage, on its own thresholds:
+
+| 5-hour used | Color   |
+| ----------- | ------- |
+| 0–64%       | default |
+| 65–84%      | yellow  |
+| 85%+        | red     |
+
+It is deliberately *not* pace-based. A five-hour window is meant to be spent, so burning it near-linearly is ordinary work, not a warning — pace coloring would sit yellow through most of any focused session and train you to ignore it. Only proximity to the cutoff is worth flagging, and `$session_reset` already tells you when that cutoff lands.
 
 `$weekly` colors on **burn pace** instead, because a raw weekly percentage says nothing on its own — 40% is comfortable on day 5 and alarming on day 1. Spending the full allowance evenly across the seven days works out to 14.29%/day, so the budget at any moment is simply the share of the window already elapsed:
 
