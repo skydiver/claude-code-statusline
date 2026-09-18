@@ -188,7 +188,24 @@ The Makefile wraps the common Cargo workflows:
 | `make dist`  | `cargo build --release`, copy the binary into `dist/ccline`, and print its size |
 | `make dev`   | `cargo run` — running without piped stdin prints a usage banner (see below)     |
 | `make test`  | `cargo test` — runs the full unit suite                                         |
-| `make clean` | `cargo clean` plus `rm -rf dist`                                                |
+| `make preview` | Build, then render a scenario matrix in real color (see below)                |
+| `make clean` | `cargo clean` plus `rm -rf dist`                                               |
+
+### Previewing scenarios
+
+The unit suite asserts escape sequences as strings, which proves the color bands are correct but never shows you what they look like. `make preview` does the opposite — it feeds synthetic payloads to the built binary and prints the real output, grouped by scenario:
+
+```
+WEEKLY PACE  (budget = elapsed share of the 7-day window)
+  day 1.0  10%  0.70x   📅 10% [Thu 9:25AM]
+  day 1.0  15%  1.05x   📅 15% [Thu 9:25AM]      ← yellow
+  day 1.0  22%  1.54x   📅 22% [Thu 9:25AM]      ← red
+  day 6.5  88%  0.95x   📅 88% [Fri 9:25PM]
+```
+
+It covers the weekly pace bands, both guards, every degradation path, the context pressure thresholds, and empty/partial payloads. The `← yellow` / `← red` annotations are read back out of the rendered bytes rather than hardcoded, so moving a threshold moves the annotation with it. Each section pins its own `format`, so your personal config never skews the output.
+
+Scenario values sit just inside their bands rather than exactly on `1.00x` / `1.50x`: the binary reads its own clock a few milliseconds after the script does, which is enough to tip an exact boundary. The boundaries themselves are pinned by unit tests, which inject `now`.
 
 ### Running directly
 
